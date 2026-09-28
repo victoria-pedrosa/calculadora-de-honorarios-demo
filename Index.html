@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de preço · Exemplo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===========================================================================
+   MONITOR DE HONORÁRIOS — LINGUAGEM VISUAL "MESA FINANCEIRA"
+   ---------------------------------------------------------------------------
+   Referência: plataformas de dados financeiros (extrato bancário, conciliação,
+   carteira de crédito). Princípios aplicados:
+     1. O dado é a única coisa colorida. Fundo e navegação são neutros frios;
+        cor só aparece quando significa algo (positivo / atenção / crítico).
+     2. Verde institucional Exemplo = ação primária e saldo positivo.
+        Âmbar = atenção. Vermelho = perda/inadimplência. Azul = informativo.
+     3. Números sempre em mono tabular e alinhados à direita — leitura de
+        coluna, como em extrato. Nunca centralizados.
+     4. Geometria reta (raio 4/6/8), fios de 1px, zero sombra fora de modal.
+        Sem barra colorida no topo de cada cartão, sem régua decorativa.
+     5. Densidade alta: linha de 34px, corpo 12.5px. Cabe carteira inteira
+        na tela sem rolagem vertical desnecessária.
+   =========================================================================== */
+:root{
+  /* trilho de navegação — grafite azulado, não verde */
+  --rail:#0D1521; --rail-2:#17222F; --rail-3:#22303F; --rail-txt:#9FB0C2;
+
+  /* neutros com viés frio (escolhidos, não herdados) */
+  --bg:#F4F6F8; --surface:#FFFFFF; --surface-2:#F1F3F6; --surface-3:#E5E9EE;
+  --border:#E1E6EB; --border-forte:#C7CFD9;
+  --texto:#0C1420; --texto-suave:#576270; --texto-fraco:#8A94A2;
+
+  /* verde institucional Exemplo — ação primária e saldo positivo */
+  --verde:#00794A; --verde-escuro:#005D39; --verde-claro:#E6F2EC; --verde-vivo:#0F9E64;
+  --laranja:#B4740D; --laranja-claro:#FBF1DC;
+
+  /* semântica de valor */
+  --ok:#00794A;      --ok-bg:#E6F2EC;
+  --atencao:#94620A; --atencao-bg:#FBF1DC;
+  --alerta:#9A4A0C;  --alerta-bg:#FBEEE2;
+  --erro:#AC221B;    --erro-bg:#FBEBE9;
+  --info:#1B4FA8;    --info-bg:#E9EFFA;
+
+  --sombra-s:none;
+  --sombra:0 1px 2px rgba(12,20,32,.05);
+  --sombra-g:0 12px 40px -12px rgba(12,20,32,.28), 0 2px 6px rgba(12,20,32,.08);
+
+  --r-s:4px; --r-m:6px; --r-g:8px;
+  --f-titulo:'Source Sans 3',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-corpo:'Source Sans 3',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',monospace;
+}
+
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--texto);font-family:var(--f-corpo);
+  font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;}
+h1,h2,h3{font-family:var(--f-titulo);margin:0;letter-spacing:-.014em;text-wrap:balance;}
+a{color:var(--verde);text-underline-offset:2px;}
+button,input,select,textarea{font-family:var(--f-corpo);font-size:inherit;}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+code{font-family:var(--f-mono);font-size:.92em;background:var(--surface-2);padding:1px 5px;border-radius:3px;}
+::selection{background:var(--verde-claro);color:var(--verde-escuro);}
+::-webkit-scrollbar{width:11px;height:11px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border-forte);border-radius:0;border:3px solid var(--bg);}
+::-webkit-scrollbar-thumb:hover{background:var(--texto-fraco);}
+
+/* ---------- Estrutura ---------- */
+#app{display:grid;grid-template-columns:224px 1fr;min-height:100vh;}
+
+/* Trilho de navegação: grafite. A área de dados é a única parte colorida. */
+#lateral{background:var(--rail);color:var(--rail-txt);display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;overflow-y:auto;}
+#lateral::-webkit-scrollbar-track{background:var(--rail);}
+#lateral::-webkit-scrollbar-thumb{background:var(--rail-3);border-color:var(--rail);}
+.marca{padding:18px 18px 15px;border-bottom:1px solid var(--rail-3);}
+.marca-nome{font-weight:700;font-size:14.5px;letter-spacing:-.02em;line-height:1.25;color:#fff;}
+.marca-sub{font-size:10.5px;margin-top:3px;color:var(--rail-txt);
+  text-transform:uppercase;letter-spacing:.09em;font-weight:600;}
+nav{padding:6px 8px 10px;display:flex;flex-direction:column;gap:0;flex:1;}
+.nav-grupo{font-size:9px;text-transform:uppercase;letter-spacing:.13em;
+  color:#65788C;padding:16px 12px 6px;font-weight:700;}
+.nav-link{display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:var(--r-s);
+  color:var(--rail-txt);text-decoration:none;font-size:12.5px;font-weight:500;
+  cursor:pointer;border:none;background:none;width:100%;text-align:left;
+  border-left:2px solid transparent;transition:background .1s,color .1s;}
+.nav-link:hover{background:var(--rail-2);color:#E6EDF4;}
+.nav-link.ativo{background:var(--rail-2);color:#fff;font-weight:600;
+  border-left-color:var(--verde-vivo);}
+.nav-ico{width:15px;text-align:center;flex:none;opacity:.75;font-size:13px;}
+.nav-link.ativo .nav-ico{opacity:1;}
+.lateral-pe{padding:13px 18px 16px;border-top:1px solid var(--rail-3);
+  font-size:10.5px;line-height:1.55;color:#7C8EA2;}
+.lateral-pe a{color:#B9C8D8;}
+
+#principal{min-width:0;display:flex;flex-direction:column;}
+#topo{position:sticky;top:0;z-index:20;background:var(--surface);
+  border-bottom:1px solid var(--border-forte);
+  padding:11px 24px;display:flex;align-items:center;justify-content:space-between;
+  gap:14px;flex-wrap:wrap;}
+#topo h1{font-size:17px;font-weight:700;}
+#topo-meta{font-size:11.5px;color:var(--texto-suave);margin-top:1px;}
+.topo-dir{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
+#conteudo{padding:20px 24px 64px;max-width:1520px;flex:1;}
+
+/* ---------- Período por tela ---------- */
+.periodo{display:flex;align-items:center;gap:8px;background:var(--surface);
+  border:1px solid var(--border-forte);border-radius:var(--r-s);padding:4px 9px 4px 11px;}
+.periodo label{font-size:9px;font-weight:700;color:var(--texto-fraco);
+  text-transform:uppercase;letter-spacing:.11em;}
+.periodo select{border:none;background:none;color:var(--texto);font-size:12.5px;
+  font-weight:600;padding:2px 2px;cursor:pointer;}
+.periodo-int{font-family:var(--f-mono);font-size:10.5px;color:var(--texto-fraco);
+  white-space:nowrap;padding-left:8px;border-left:1px solid var(--border);}
+
+/* ---------- Botões ---------- */
+.btn{appearance:none;border:1px solid var(--border-forte);background:var(--surface);
+  color:var(--texto);padding:6px 13px;border-radius:var(--r-s);font-size:12.5px;font-weight:600;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  transition:background .1s,border-color .1s;}
+.btn:hover{background:var(--surface-2);border-color:var(--texto-fraco);}
+.btn:active{background:var(--surface-3);}
+.btn:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,
+textarea:focus-visible,.nav-link:focus-visible{outline:2px solid var(--verde-vivo);outline-offset:2px;}
+.btn-1{background:var(--verde);border-color:var(--verde);color:#fff;}
+.btn-1:hover{background:var(--verde-escuro);border-color:var(--verde-escuro);}
+.btn-fantasma{border-color:transparent;background:transparent;color:var(--texto-suave);}
+.btn-fantasma:hover{background:var(--surface-2);border-color:transparent;color:var(--texto);}
+.btn-perigo{color:var(--erro);border-color:var(--border-forte);background:var(--surface);}
+.btn-perigo:hover{background:var(--erro);color:#fff;border-color:var(--erro);}
+.btn:disabled{opacity:.42;cursor:not-allowed;}
+.btn-p{padding:3px 9px;font-size:11.5px;}
+
+/* ---------- Cartões e indicadores (padrão "ticker") ---------- */
+.cartao{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);}
+/* Faixa de indicadores fundida: fio de 1px entre as células, sem célula
+   fantasma quando a última linha não fecha (o vão fica no fundo da página). */
+.ind-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));
+  gap:1px;padding:1px;background:transparent;}
+/* Sem barra colorida no topo: a cor entra só no valor quando há significado. */
+.ind{background:var(--surface);padding:13px 15px 14px;display:flex;flex-direction:column;
+  gap:3px;position:relative;border-radius:0;border:none;box-shadow:0 0 0 1px var(--border);}
+.ind-rot{font-size:9.5px;color:var(--texto-fraco);text-transform:uppercase;
+  letter-spacing:.11em;font-weight:700;}
+.ind-val{font-family:var(--f-mono);font-size:23px;font-weight:600;letter-spacing:-.035em;
+  line-height:1.2;color:var(--texto);}
+.ind-sub{font-size:11px;color:var(--texto-suave);line-height:1.4;}
+.ind.laranja .ind-val{color:var(--atencao);}
+.ind.alerta .ind-val{color:var(--erro);}
+.ind.neutro .ind-val{color:var(--texto-suave);}
+.ind.link{cursor:pointer;text-decoration:none;color:inherit;transition:background .1s;}
+.ind.link:hover{background:var(--surface-2);}
+.ind.link::after{content:'›';position:absolute;top:11px;right:13px;color:var(--texto-fraco);
+  font-size:15px;line-height:1;opacity:0;transition:opacity .1s;}
+.ind.link:hover::after{opacity:1;}
+
+/* ---------- Seções: fio de razão, sem régua decorativa ---------- */
+.sec{margin-bottom:24px;}
+.sec-tit{font-size:11px;font-weight:700;margin:0 0 11px;font-family:var(--f-titulo);
+  text-transform:uppercase;letter-spacing:.11em;color:var(--texto-suave);
+  padding-bottom:7px;border-bottom:1px solid var(--border-forte);display:block;}
+.sec-tit .leve{font-weight:600;color:var(--texto-fraco);font-size:10.5px;
+  margin-left:8px;text-transform:none;letter-spacing:.02em;}
+.grade-2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;}
+@media (max-width:1080px){.grade-2{grid-template-columns:1fr;}}
+
+/* ---------- Tabelas: leitura de extrato ---------- */
+.tab-caixa{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface);}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead th{position:sticky;top:0;z-index:1;background:var(--surface-2);text-align:left;
+  font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--texto-fraco);
+  font-weight:700;padding:8px 12px;border-bottom:1px solid var(--border-forte);white-space:nowrap;}
+thead th.num{text-align:right;}
+tbody td{padding:7px 12px;border-bottom:1px solid var(--border);vertical-align:middle;
+  height:34px;}
+tbody td.mono{text-align:right;font-size:12px;white-space:nowrap;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--surface-2);}
+tr.clicavel{cursor:pointer;}
+tr.clicavel:hover td:first-child{box-shadow:inset 2px 0 0 var(--verde);}
+.cel-emp{display:flex;flex-direction:column;gap:0;}
+.cel-nome{font-weight:600;line-height:1.35;}
+.cel-cnpj{font-size:10px;color:var(--texto-fraco);font-family:var(--f-mono);
+  line-height:1.35;letter-spacing:-.02em;}
+
+/* ---------- Selos ---------- */
+.selo{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:3px;
+  font-size:10.5px;font-weight:700;white-space:nowrap;text-transform:uppercase;
+  letter-spacing:.05em;}
+.selo-ok{background:var(--ok-bg);color:var(--ok);}
+.selo-atencao{background:var(--atencao-bg);color:var(--atencao);}
+.selo-alerta{background:var(--alerta-bg);color:var(--alerta);}
+.selo-erro{background:var(--erro-bg);color:var(--erro);}
+.selo-info{background:var(--info-bg);color:var(--info);}
+.selo-neutro{background:var(--surface-3);color:var(--texto-suave);}
+.selos{display:flex;flex-wrap:wrap;gap:4px;}
+
+/* ---------- Filtros ---------- */
+.filtros{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;align-items:center;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-m);
+  padding:9px 11px;}
+.filtros select,.filtros input{background:var(--surface);border:1px solid var(--border-forte);
+  border-radius:var(--r-s);padding:6px 10px;font-size:12px;color:var(--texto);
+  transition:border-color .1s;}
+.filtros select:hover,.filtros input:hover{border-color:var(--texto-fraco);}
+.filtros input[type=search]{min-width:260px;}
+.espaco{flex:1;}
+
+/* ---------- Avisos ---------- */
+.aviso{border-radius:var(--r-m);padding:11px 14px;font-size:12.5px;display:flex;gap:10px;
+  align-items:flex-start;margin-bottom:14px;line-height:1.55;
+  border:1px solid var(--border);border-left-width:3px;background:var(--surface);}
+.aviso-info{border-left-color:var(--info);background:var(--info-bg);border-color:var(--info-bg);}
+.aviso-atencao{border-left-color:var(--atencao);background:var(--atencao-bg);border-color:var(--atencao-bg);}
+.aviso-erro{border-left-color:var(--erro);background:var(--erro-bg);border-color:var(--erro-bg);}
+.aviso-ok{border-left-color:var(--ok);background:var(--ok-bg);border-color:var(--ok-bg);}
+.aviso b{font-weight:700;}
+.aviso-ico{font-size:14px;line-height:1.3;flex:none;}
+
+/* ---------- Formulários ---------- */
+.form-grade{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:560px){.form-grade{grid-template-columns:1fr;}}
+.campo{display:flex;flex-direction:column;gap:4px;}
+.campo.largo{grid-column:1/-1;}
+.campo label{font-size:10px;font-weight:700;color:var(--texto-fraco);
+  text-transform:uppercase;letter-spacing:.08em;}
+.campo input,.campo select,.campo textarea{background:var(--surface);
+  border:1px solid var(--border-forte);border-radius:var(--r-s);padding:7px 10px;
+  font-size:12.5px;color:var(--texto);width:100%;transition:border-color .1s,box-shadow .1s;}
+.campo input[type=number],.campo input[inputmode=decimal]{font-family:var(--f-mono);
+  font-variant-numeric:tabular-nums;text-align:right;}
+.campo input:focus,.campo select:focus,.campo textarea:focus{border-color:var(--verde);
+  box-shadow:0 0 0 3px var(--verde-claro);outline:none;}
+.campo input[aria-invalid="true"]{border-color:var(--erro);}
+.campo textarea{resize:vertical;min-height:62px;line-height:1.5;}
+.dica{font-size:10.5px;color:var(--texto-fraco);line-height:1.45;}
+.erro-campo{font-size:11px;color:var(--erro);font-weight:600;}
+.chk{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;
+  color:var(--texto);}
+.chk input{width:auto;accent-color:var(--verde);}
+
+/* ---------- Modal ---------- */
+.fundo-modal{position:fixed;inset:0;background:rgba(12,20,32,.52);display:flex;
+  align-items:center;justify-content:center;z-index:60;padding:20px;}
+.modal{background:var(--surface);border-radius:var(--r-g);width:100%;max-width:580px;
+  box-shadow:var(--sombra-g);max-height:90vh;display:flex;flex-direction:column;
+  border:1px solid var(--border-forte);}
+.modal-topo{padding:15px 20px 13px;border-bottom:1px solid var(--border-forte);
+  background:var(--surface-2);border-radius:var(--r-g) var(--r-g) 0 0;}
+.modal-topo h3{font-size:15px;font-weight:700;}
+.modal-corpo{padding:17px 20px;overflow-y:auto;}
+.modal-pe{padding:13px 20px;border-top:1px solid var(--border);background:var(--surface-2);
+  border-radius:0 0 var(--r-g) var(--r-g);
+  display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.modal-g{max-width:900px;}
+
+/* ---------- Avisos flutuantes ---------- */
+#avisos{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;
+  gap:7px;z-index:90;max-width:380px;}
+.flutuante{padding:10px 14px;border-radius:var(--r-s);font-size:12.5px;line-height:1.45;
+  box-shadow:var(--sombra-g);background:var(--rail);color:#E6EDF4;
+  display:flex;gap:9px;align-items:flex-start;border-left:3px solid var(--texto-fraco);}
+.flutuante.ok{border-left-color:var(--verde-vivo);}
+.flutuante.erro{border-left-color:#E8675C;}
+.flutuante.atencao{border-left-color:#E0A93C;}
+
+/* ---------- Estados ---------- */
+.carregando{padding:60px 20px;text-align:center;color:var(--texto-fraco);font-size:12.5px;}
+.giro{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--verde);
+  border-radius:50%;animation:girar .7s linear infinite;margin:0 auto 12px;}
+@keyframes girar{to{transform:rotate(360deg);}}
+.vazio{padding:44px 20px;text-align:center;color:var(--texto-suave);}
+.vazio-ico{font-size:28px;margin-bottom:8px;opacity:.4;}
+.barra-inline{height:2px;background:var(--border);overflow:hidden;margin-bottom:14px;}
+.barra-inline > div{height:100%;background:var(--verde);animation:progresso 1.1s ease-in-out infinite;}
+@keyframes progresso{0%{margin-left:-35%;width:35%}100%{margin-left:100%;width:35%}}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+}
+
+/* ---------- Barras horizontais ---------- */
+.barra-lin{display:flex;align-items:center;gap:11px;padding:6px 0;}
+.barra-lin:not(:last-child){border-bottom:1px solid var(--border);}
+.barra-rot{font-size:12px;min-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.barra-trilho{flex:1;height:6px;background:var(--surface-3);border-radius:2px;overflow:hidden;min-width:50px;}
+.barra-preenche{height:100%;border-radius:2px;background:var(--verde);transition:width .3s;}
+.barra-val{font-family:var(--f-mono);font-size:11.5px;color:var(--texto);
+  min-width:70px;text-align:right;font-variant-numeric:tabular-nums;}
+.barra-num{font-family:var(--f-mono);font-size:10.5px;color:var(--texto-fraco);
+  min-width:50px;text-align:right;}
+
+/* ---------- Linha do tempo ---------- */
+.linha-tempo{display:flex;flex-direction:column;}
+.lt-item{display:grid;grid-template-columns:14px 1fr;gap:13px;padding-bottom:15px;position:relative;}
+.lt-item:not(:last-child)::before{content:'';position:absolute;left:6px;top:17px;bottom:-4px;
+  width:1px;background:var(--border-forte);}
+.lt-ponto{width:13px;height:13px;border-radius:50%;background:var(--surface);
+  border:2px solid var(--verde);margin-top:4px;}
+.lt-tit{font-weight:700;font-size:12.5px;}
+.lt-meta{font-size:10.5px;color:var(--texto-fraco);margin-top:1px;font-family:var(--f-mono);}
+.lt-obs{margin-top:4px;color:var(--texto-suave);font-size:12px;}
+
+.paginacao{display:flex;align-items:center;gap:8px;justify-content:flex-end;
+  padding:9px 12px;font-size:12px;color:var(--texto-suave);border-top:1px solid var(--border);}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:1px;
+  padding:0;background:var(--border);}
+.kv > div{background:var(--surface);padding:11px 14px;}
+.kv-rot{font-size:9.5px;text-transform:uppercase;color:var(--texto-fraco);
+  letter-spacing:.1em;margin-bottom:3px;font-weight:700;}
+.kv-val{font-weight:600;font-size:13px;}
+.kv-val.mono{font-size:13.5px;letter-spacing:-.03em;}
+.divisor{height:1px;background:var(--border);margin:16px 0;}
+.pilha{display:flex;flex-direction:column;gap:10px;}
+.acoes{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.regra{display:grid;grid-template-columns:2fr 110px;gap:12px;align-items:center;
+  padding:10px 0;border-bottom:1px solid var(--border);}
+.regra:last-child{border-bottom:none;}
+.regra-rot{font-size:12.5px;font-weight:600;}
+.regra-desc{font-size:11px;color:var(--texto-fraco);margin-top:2px;line-height:1.45;}
+.suave{color:var(--texto-suave);} .fraco{color:var(--texto-fraco);}
+
+/* ---------- Responsivo ---------- */
+@media (max-width:900px){
+  #app{grid-template-columns:1fr;}
+  #lateral{position:static;height:auto;}
+  nav{flex-direction:row;flex-wrap:wrap;gap:3px;padding:8px 12px 12px;}
+  .nav-link{width:auto;font-size:12px;padding:5px 10px;border-left:none;
+    border-bottom:2px solid transparent;}
+  .nav-link.ativo{border-left:none;border-bottom-color:var(--verde-vivo);}
+  .nav-grupo{width:100%;padding:8px 0 2px;}
+  #topo{padding:11px 16px;}
+  #conteudo{padding:16px 16px 52px;}
+  .topo-dir{width:100%;justify-content:flex-start;}
+  .barra-rot{min-width:110px;}
+  .filtros input[type=search]{min-width:100%;}
+}
+@media (max-width:420px){
+  .ind-val{font-size:20px;}
+  #topo h1{font-size:16px;}
+  #conteudo{padding:14px 16px 48px;}
+}
+
+
+/* ==========================================================================
+   REFINAMENTO VISUAL — MONITOR DE HONORÁRIOS
+   Direção: sistema financeiro robusto, sóbrio e institucional.
+   Camada de sobreposição: entra depois do sistema base e só redefine
+   aparência. Nenhuma rota, função, id, formulário ou integração é tocada.
+   ========================================================================== */
+
+:root{
+  /* Navegação */
+  --rail:#123B2A; --rail-2:#194B37; --rail-3:#286148; --rail-txt:#B8CABE;
+
+  /* Superfície */
+  --bg:#F4F7F3; --surface:#FFFFFF; --surface-2:#F7F9F6; --surface-3:#E9EFEA;
+
+  /* Bordas */
+  --border:#DCE6DF; --border-forte:#C4D3C8;
+
+  /* Texto */
+  --texto:#17231D; --texto-suave:#53645A; --texto-fraco:#7E8D83;
+
+  /* Verde institucional */
+  --verde:#176B4D; --verde-escuro:#0F4F38; --verde-claro:#E5F0E9; --verde-vivo:#2F8F68;
+
+  /* Estados semânticos */
+  --ok:#176B4D;      --ok-bg:#E5F0E9;
+  --atencao:#946517; --atencao-bg:#FAF1DC;
+  --alerta:#A65A13;  --alerta-bg:#FBEDE0;
+  --erro:#A8342B;    --erro-bg:#FAE9E7;
+  --info:#315C91;    --info-bg:#EAF0F8;
+
+  /* Sombras discretas */
+  --sombra-s:0 1px 2px rgba(18,59,42,.05);
+  --sombra:0 2px 8px rgba(18,59,42,.08);
+  --sombra-g:0 18px 45px rgba(18,59,42,.18), 0 3px 10px rgba(18,59,42,.08);
+
+  /* Raios mais controlados */
+  --r-s:5px; --r-m:8px; --r-g:12px;
+
+  /* IBM Plex Sans dá aspecto institucional; Source Sans 3 permanece como
+     alternativa de leitura caso a fonte não carregue. */
+  --f-titulo:'IBM Plex Sans','Source Sans 3',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-corpo:'IBM Plex Sans','Source Sans 3',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;
+}
+
+/* ---------- Base ---------- */
+html,body{background:var(--bg);color:var(--texto);}
+body{font-size:13px;line-height:1.52;letter-spacing:-.003em;}
+h1,h2,h3{font-family:var(--f-titulo);letter-spacing:-.02em;font-weight:650;}
+a{color:var(--verde);}
+::selection{background:#CFE5D8;color:var(--verde-escuro);}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:#B7C9BC;border-color:var(--bg);}
+::-webkit-scrollbar-thumb:hover{background:#8FA997;}
+
+/* ---------- Navegação lateral ---------- */
+#lateral{background:linear-gradient(180deg,#123B2A 0%,#103526 58%,#0E3023 100%);
+  color:var(--rail-txt);box-shadow:3px 0 18px rgba(8,38,25,.08);}
+.marca{padding:23px 20px 19px;border-bottom:1px solid rgba(210,235,218,.14);}
+.marca-nome{color:#F5FBF6;font-size:15px;font-weight:700;letter-spacing:-.025em;}
+.marca-sub{color:#A9C5B2;font-size:10px;letter-spacing:.105em;}
+nav{padding:11px 10px 16px;}
+.nav-grupo{color:#83AA91;font-size:9.5px;letter-spacing:.13em;padding:18px 12px 7px;}
+.nav-link{position:relative;min-height:36px;padding:8px 12px;color:#B7CBBB;
+  border-left:3px solid transparent;border-radius:6px;font-size:12.5px;
+  transition:background .16s ease,color .16s ease,border-color .16s ease,transform .16s ease;}
+.nav-link:hover{color:#F3FAF4;background:rgba(255,255,255,.075);transform:translateX(1px);}
+.nav-link.ativo{color:#FFFFFF;background:rgba(255,255,255,.12);border-left-color:#73C394;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.045);}
+.nav-link.ativo::after{content:'';position:absolute;right:12px;width:5px;height:5px;
+  border-radius:50%;background:#82D29E;}
+.nav-ico{width:17px;color:#9FC5AA;font-size:14px;}
+.nav-link.ativo .nav-ico{color:#B8E6C5;}
+.lateral-pe{padding:15px 20px 18px;color:#91AD99;border-top-color:rgba(210,235,218,.14);}
+.lateral-pe a{color:#C0DEC8;}
+
+/* ---------- Cabeçalho ---------- */
+#topo{min-height:68px;padding:13px 28px;background:rgba(255,255,255,.96);
+  border-bottom:1px solid var(--border);box-shadow:0 1px 5px rgba(18,59,42,.035);
+  backdrop-filter:blur(8px);}
+#topo h1{color:#17231D;font-size:19px;font-weight:650;}
+#topo-meta{color:var(--texto-suave);font-size:11.5px;}
+
+/* ---------- Conteúdo e seções ---------- */
+#conteudo{max-width:1580px;padding:25px 28px 72px;}
+.sec{margin-bottom:29px;}
+.sec-tit{margin-bottom:13px;padding-bottom:9px;color:#52665A;
+  border-bottom-color:var(--border-forte);font-size:11px;font-weight:700;letter-spacing:.075em;}
+.sec-tit .leve{color:var(--texto-fraco);font-size:11px;font-weight:500;letter-spacing:0;}
+
+/* ---------- Período e botões ---------- */
+.periodo{min-height:36px;padding:5px 10px 5px 12px;background:var(--surface-2);
+  border-color:var(--border);border-radius:6px;}
+.periodo label{color:var(--texto-fraco);}
+.periodo select{color:var(--texto);font-weight:600;}
+.btn{min-height:34px;padding:7px 13px;border-color:var(--border-forte);border-radius:6px;
+  font-size:12.5px;font-weight:600;
+  transition:background .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease,transform .15s ease;}
+.btn:hover{background:#F2F6F2;border-color:#9EB5A5;transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn-1{background:var(--verde);border-color:var(--verde);color:#FFFFFF;
+  box-shadow:0 2px 5px rgba(23,107,77,.18);}
+.btn-1:hover{background:var(--verde-escuro);border-color:var(--verde-escuro);
+  box-shadow:0 4px 10px rgba(23,107,77,.22);}
+.btn-fantasma{color:var(--texto-suave);}
+.btn-fantasma:hover{color:var(--texto);background:var(--surface-3);}
+.btn:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,
+textarea:focus-visible,.nav-link:focus-visible{outline:3px solid rgba(47,143,104,.35);outline-offset:2px;}
+
+/* ---------- Indicadores ----------
+   Faixa fundida por anel de 1px em cada célula, em vez de fundo cinza no
+   grid: quando a última linha não fecha (ex.: 5 cards em 6 colunas), o vão
+   fica invisível em vez de virar um bloco cinza vazio. Mesmo resultado
+   visual, sem a célula fantasma. */
+.ind-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(208px,1fr));
+  gap:1px;padding:1px;background:transparent;border:0;border-radius:0;overflow:visible;}
+@media (min-width:1500px){ .ind-grade{grid-template-columns:repeat(6,1fr);} }
+@media (max-width:1180px){ .ind-grade{grid-template-columns:repeat(3,1fr);} }
+@media (max-width:760px){  .ind-grade{grid-template-columns:repeat(2,1fr);} }
+@media (max-width:430px){  .ind-grade{grid-template-columns:1fr;} }
+.ind{min-height:118px;padding:17px 17px 16px;background:var(--surface);border:0;
+  box-shadow:0 0 0 1px var(--border);transition:background .15s ease,box-shadow .15s ease;}
+.ind:hover{z-index:1;background:#FBFDFB;box-shadow:0 0 0 1px #A9C8B4;}
+.ind-rot{color:#718178;font-size:9.5px;letter-spacing:.095em;}
+.ind-val{margin-top:3px;color:#163A29;font-size:22px;font-weight:650;
+  line-height:1.2;overflow-wrap:anywhere;}
+.ind-sub{color:var(--texto-suave);font-size:11px;}
+.ind.laranja .ind-val{color:var(--atencao);}
+.ind.alerta .ind-val{color:var(--erro);}
+.ind.neutro .ind-val{color:#53645A;}
+
+/* ---------- Cartões ---------- */
+.cartao{background:var(--surface);border-color:var(--border);border-radius:var(--r-m);
+  box-shadow:var(--sombra-s);}
+.cartao:hover{border-color:#CEDCD2;}
+.kv{background:var(--border);}
+.kv > div{background:var(--surface);padding:13px 15px;}
+.kv-rot{color:var(--texto-fraco);}
+.kv-val{color:var(--texto);}
+
+/* ---------- Tabelas ---------- */
+.tab-caixa{border-color:var(--border);border-radius:var(--r-m);box-shadow:var(--sombra-s);}
+table{font-size:12.5px;}
+thead th{padding:10px 13px;background:#EEF4EF;color:#64766A;
+  border-bottom-color:var(--border-forte);font-size:9.5px;letter-spacing:.075em;}
+tbody td{height:40px;padding:8px 13px;border-bottom-color:#E7EEE9;}
+tbody tr{transition:background .12s ease;}
+tbody tr:hover{background:#F4F8F4;}
+tr.clicavel:hover td:first-child{box-shadow:inset 3px 0 0 var(--verde-vivo);}
+.cel-nome{color:#26382D;font-weight:650;}
+.cel-cnpj{color:#85938A;}
+
+/* ---------- Selos de status ---------- */
+.selo{min-height:23px;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;
+  letter-spacing:.035em;}
+.selo-ok{background:#E2F1E7;color:#176B4D;}
+.selo-atencao{background:#FBF0D8;color:#8B621B;}
+.selo-alerta{background:#FBEAD9;color:#985312;}
+.selo-erro{background:#FAE5E3;color:#A8342B;}
+.selo-info{background:#E8EFF8;color:#315C91;}
+.selo-neutro{background:#E9EFEA;color:#65756B;}
+
+/* ---------- Filtros ---------- */
+.filtros{gap:8px;padding:11px 12px;background:#FBFDFB;border-color:var(--border);
+  border-radius:var(--r-m);box-shadow:var(--sombra-s);}
+.filtros select,.filtros input{min-height:35px;background:var(--surface);
+  border-color:var(--border-forte);border-radius:6px;}
+.filtros select:focus,.filtros input:focus,.campo input:focus,.campo select:focus,
+.campo textarea:focus{border-color:var(--verde);box-shadow:0 0 0 3px rgba(47,143,104,.14);}
+
+/* ---------- Alertas ---------- */
+.aviso{padding:12px 15px;border-radius:var(--r-m);box-shadow:0 1px 3px rgba(18,59,42,.035);}
+.aviso-info{color:#315C91;background:var(--info-bg);border-color:#D8E3F1;border-left-color:var(--info);}
+.aviso-atencao{background:var(--atencao-bg);border-color:#F0DFB9;border-left-color:var(--atencao);}
+.aviso-erro{background:var(--erro-bg);border-color:#EFD0CC;border-left-color:var(--erro);}
+.aviso-ok{background:var(--ok-bg);border-color:#CCE3D4;border-left-color:var(--ok);}
+
+/* ---------- Formulários ---------- */
+.campo label{color:#65766B;font-size:10px;letter-spacing:.065em;}
+.campo input,.campo select,.campo textarea{min-height:37px;border-color:var(--border-forte);
+  border-radius:6px;background:#FFFFFF;}
+.campo textarea{min-height:78px;}
+.campo input::placeholder,.campo textarea::placeholder{color:#A0ACA4;}
+.chk{color:var(--texto-suave);}
+
+/* ---------- Modal ---------- */
+.fundo-modal{background:rgba(14,48,35,.48);backdrop-filter:blur(3px);}
+.modal{border-color:var(--border);border-radius:var(--r-g);box-shadow:var(--sombra-g);}
+.modal-topo{padding:18px 21px 15px;background:#F2F7F3;border-bottom-color:var(--border);}
+.modal-topo h3{color:#183C2A;font-size:16px;}
+.modal-corpo{padding:20px 21px;}
+.modal-pe{padding:14px 21px;background:#F7FAF7;border-top-color:var(--border);}
+
+/* ---------- Toasts ---------- */
+#avisos{right:22px;bottom:22px;}
+.flutuante{padding:11px 15px;background:#173C2B;border:1px solid rgba(255,255,255,.08);
+  border-left:3px solid #9DB4A3;border-radius:7px;box-shadow:var(--sombra-g);}
+.flutuante.ok{border-left-color:#7FD09B;}
+.flutuante.erro{border-left-color:#ED8279;}
+.flutuante.atencao{border-left-color:#E5BD67;}
+
+/* ---------- Carregamento e estados vazios ---------- */
+.carregando{color:var(--texto-fraco);}
+.giro{border-color:#DBE8DE;border-top-color:var(--verde);}
+.vazio{color:var(--texto-suave);}
+.vazio-ico{color:var(--verde);opacity:.6;}
+
+/* ---------- Barras, timeline e paginação ---------- */
+.barra-trilho{background:#E5EDE7;}
+.barra-preenche{background:var(--verde);}
+.barra-val{color:#31503D;}
+.lt-ponto{border-color:var(--verde);}
+.lt-item:not(:last-child)::before{background:#C8D9CC;}
+.paginacao{border-top-color:var(--border);}
+
+/* Número clicável. Sublinhado pontilhado em texto de 10px não se enxerga —
+   precisa parecer um controle: moldura, fundo e seta. */
+.num-link{appearance:none;font:inherit;font-family:var(--f-mono);
+  font-variant-numeric:tabular-nums;font-weight:600;font-size:11.5px;
+  color:var(--verde);background:var(--verde-claro);border:1px solid transparent;
+  padding:2px 7px;border-radius:4px;cursor:pointer;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:4px;transition:background .1s,color .1s;}
+.num-link::after{content:'›';font-size:13px;line-height:1;opacity:.55;}
+.num-link:hover{background:var(--verde);color:#fff;}
+.num-link:hover::after{opacity:1;}
+.num-link:focus-visible{outline:2px solid var(--verde-vivo);outline-offset:2px;}
+.ind.link{cursor:pointer;}
+.ind.link:hover{background:#FBFDFB;box-shadow:0 0 0 1px #A9C8B4;}
+.ind.link::after{content:'›';position:absolute;top:14px;right:15px;color:var(--texto-fraco);
+  font-size:15px;line-height:1;opacity:0;transition:opacity .12s;}
+.ind.link:hover::after{opacity:1;}
+
+/* Filho de grid nasce com min-width:auto e se recusa a encolher abaixo do
+   conteúdo — por isso a tabela larga empurrava a PÁGINA inteira em vez de
+   rolar dentro da própria caixa. min-width:0 na cadeia é o que faz o
+   overflow-x das tabelas funcionar. */
+.grade-2 > *, .ind-grade > *, .form-grade > *, .kv > *{ min-width:0; }
+#conteudo, #principal{ min-width:0; }
+.cartao{ overflow-x:auto; }
+.tab-caixa{ overflow-x:auto; max-width:100%; }
+table{ max-width:100%; }
+
+/* Em tela estreita a tabela rola sozinha, com a coluna da empresa fixa —
+   sem isso o CNPJ some e não dá para saber de quem é a linha. */
+@media (max-width:760px){
+  .tab-caixa{ -webkit-overflow-scrolling:touch; }
+  .tab-caixa table{ min-width:620px; }
+  .tab-caixa thead th:first-child,
+  .tab-caixa tbody td:first-child{
+    position:sticky; left:0; z-index:2; background:var(--surface);
+    box-shadow:1px 0 0 var(--border);
+  }
+  .tab-caixa thead th:first-child{ background:#EEF4EF; z-index:3; }
+  .tab-caixa tbody tr:hover td:first-child{ background:#F4F8F4; }
+  .grade-2{ grid-template-columns:1fr; }
+  .form-grade{ grid-template-columns:1fr; }
+  .regra{ grid-template-columns:1fr 110px; }
+  .topo-dir{ width:100%; }
+  .periodo{ flex:1; justify-content:space-between; }
+  .modal{ max-height:94vh; }
+  .modal-g{ max-width:100%; }
+}
+/* Barra de filtros: em tela média os campos ficavam espremidos lado a lado
+   (Adimplência e Diagnóstico tinham busca + 2 selects + botão numa linha só).
+   Vira grade que quebra sozinha e, no celular, uma coluna. */
+@media (max-width:760px){
+  .filtros{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+            gap:8px; align-items:stretch; }
+  .filtros input[type=search]{ grid-column:1/-1; min-width:0; }
+  .filtros select, .filtros input{ width:100%; min-width:0; }
+  .filtros .espaco{ display:none; }
+  .filtros .btn{ width:100%; justify-content:center; }
+  .filtros .chk{ grid-column:1/-1; }
+  .ind-grade{ gap:1px; }
+}
+@media (max-width:430px){
+  .periodo-int{ display:none; }
+  .filtros{ grid-template-columns:1fr; gap:6px; }
+  .acoes .btn{ flex:1; justify-content:center; }
+  .kv{ grid-template-columns:1fr 1fr; }
+  .paginacao{ flex-wrap:wrap; justify-content:flex-start; }
+}
+
+/* No celular a navegação empilhada ocupava a tela inteira e o usuário rolava
+   ~700px de menu antes de ver o primeiro número. Vira uma faixa de uma linha
+   só, que rola na horizontal e fica grudada no topo. */
+@media (max-width:900px){
+  #lateral{ position:sticky; top:0; z-index:30; }
+  .marca{ padding:12px 16px 10px; }
+  .marca-nome{ font-size:13.5px; }
+  .marca-sub{ font-size:9.5px; }
+  nav{ flex-direction:row; flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-x:contain;
+       gap:3px; padding:6px 10px 9px; scrollbar-width:none; }
+  nav::-webkit-scrollbar{ display:none; }
+  .nav-grupo{ display:none; }
+  .nav-link{ flex:0 0 auto; white-space:nowrap; padding:6px 11px; font-size:12px;
+             border-left:none; border-bottom:2px solid transparent; }
+  .nav-link.ativo{ border-left:none; border-bottom-color:var(--verde-vivo); }
+  #topo{ position:static; }
+}
+@media (max-width:600px){
+  .lateral-pe{ display:none; }
+}
+
+/* ---------- Responsividade ---------- */
+@media (max-width:900px){
+  #topo{padding:13px 18px;}
+  #conteudo{padding:20px 18px 58px;}
+  #lateral{box-shadow:none;}
+  nav{background:rgba(0,0,0,.08);}
+  .nav-link{min-height:34px;}
+  .nav-link.ativo::after{display:none;}
+}
+@media (max-width:560px){
+  #conteudo{padding:17px 14px 48px;}
+  #topo{padding:12px 14px;}
+  #topo h1{font-size:17px;}
+  .ind{min-height:105px;padding:14px;}
+  .ind-val{font-size:22px;}
+  .filtros{align-items:stretch;}
+  .filtros input,.filtros select,.filtros .btn{width:100%;}
+  .periodo{width:100%;justify-content:space-between;}
+  .periodo-int{display:none;}
+  .modal-corpo,.modal-topo,.modal-pe{padding-left:15px;padding-right:15px;}
+}
+
+</style>
+<style>
+body{background:var(--bg);}
+.solo-topo{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;
+  padding:16px 22px;background:var(--surface);border-bottom:1px solid var(--border);}
+.solo-topo h1{font-size:19px;}
+.solo-marca{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;font-weight:700;color:var(--verde);margin-bottom:2px;}
+#solo-base{font-size:12px;color:var(--texto-suave);}
+#conteudo{max-width:1320px;margin:0 auto;padding:18px 22px 48px;}
+@media (max-width:760px){ #conteudo{padding:14px 12px 40px;} .solo-topo{padding:12px 14px;} }
+</style>
+</head>
+<body>
+<header class="solo-topo" id="topo"><div><div class="solo-marca">Escritório Contábil Exemplo</div><h1 id="titulo">Calculadora de preço</h1><div id="topo-meta" class="dica" style="margin:2px 0 0;"></div></div><div id="solo-base"></div></header>
+<main id="conteudo"><div class="carregando"><div class="giro"></div>Carregando a calculadora…</div></main>
+<div id="avisos"></div>
+<div id="modal"></div>
+<script>
+function esc(s){
+  return String(s===null||s===undefined?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function num(v){ return (v===null||v===undefined||isNaN(v)) ? 0 : Number(v); }
+function fmtNum(v){ return num(v).toLocaleString('pt-BR'); }
+function fmtBRL(v){
+  if(v===null||v===undefined||v==='') return '—';
+  return 'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtCurto(v){
+  if(v===null||v===undefined||v==='') return '—';
+  var n = Number(v);
+  if(Math.abs(n)>=1e6) return 'R$ '+(n/1e6).toFixed(2)+'M';
+  if(Math.abs(n)>=1e3) return 'R$ '+(n/1e3).toFixed(1)+'k';
+  return 'R$ '+n.toFixed(0);
+}
+function fmtPct(v, casas){
+  if(v===null||v===undefined||v==='') return '—';
+  return (v>=0?'+':'')+(v*100).toFixed(casas===undefined?1:casas)+'%';
+}
+function fmtData(iso){
+  if(!iso) return '—';
+  var d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR');
+}
+function fmtDataHora(iso){
+  if(!iso) return '—';
+  var d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+}
+
+/** Aviso flutuante. tipo: ok | erro | atencao | '' */
+function avisar(msg, tipo){
+  var cx = document.getElementById('avisos');
+  var el = document.createElement('div');
+  el.className = 'flutuante '+(tipo||'');
+  el.innerHTML = '<span>'+(tipo==='erro'?'✕':tipo==='ok'?'✓':tipo==='atencao'?'!':'i')+'</span><span>'+esc(msg)+'</span>';
+  cx.appendChild(el);
+  setTimeout(function(){ el.remove(); }, tipo==='erro' ? 7000 : 4200);
+}
+
+/**
+ * Toda chamada ao servidor passa por aqui. Assim erro de rede, erro lançado
+ * pelo Code.gs e resposta {ok:false} caem todos no mesmo tratamento — o
+ * usuário sempre vê uma mensagem em vez de a tela travar em silêncio.
+ */
+function chamar(fn, args, aoOk, aoErro){
+  var alvo = google.script.run
+    .withSuccessHandler(function(res){
+      if(res && res.ok === false){
+        avisar(res.erro || 'Não foi possível concluir a operação.', 'erro');
+        if(aoErro) aoErro(res);
+        return;
+      }
+      if(aoOk) aoOk(res);
+    })
+    .withFailureHandler(function(err){
+      var msg = (err && err.message) ? err.message : String(err);
+      avisar('Erro no servidor: '+msg, 'erro');
+      if(aoErro) aoErro({ok:false, erro:msg});
+    });
+  alvo[fn].apply(alvo, args || []);
+}
+
+function ocupado(el, ligado){
+  if(!el) return;
+  el.disabled = !!ligado;
+  if(ligado){ el.dataset.txt = el.textContent; el.textContent = 'Aguarde…'; }
+  else if(el.dataset.txt){ el.textContent = el.dataset.txt; }
+}
+
+/* ===========================================================================
+   MODAL
+   =========================================================================== */
+function abrirModal(titulo, corpoHtml, acoes, grande){
+  fecharModal();
+  var fundo = document.createElement('div');
+  fundo.className = 'fundo-modal';
+  fundo.innerHTML = '<div class="modal'+(grande?' modal-g':'')+'" role="dialog" aria-modal="true">'+
+    '<div class="modal-topo"><h3>'+esc(titulo)+'</h3></div>'+
+    '<div class="modal-corpo" id="modal-corpo">'+corpoHtml+'</div>'+
+    '<div class="modal-pe" id="modal-pe"></div></div>';
+  fundo.addEventListener('click', function(e){ if(e.target===fundo) fecharModal(); });
+  document.getElementById('modal').appendChild(fundo);
+
+  var pe = document.getElementById('modal-pe');
+  var cancelar = document.createElement('button');
+  cancelar.className = 'btn btn-fantasma';
+  cancelar.textContent = 'Cancelar';
+  cancelar.addEventListener('click', fecharModal);
+  pe.appendChild(cancelar);
+
+  (acoes||[]).forEach(function(a){
+    var b = document.createElement('button');
+    b.className = 'btn '+(a.primario?'btn-1':(a.perigo?'btn-perigo':'btn-fantasma'));
+    b.textContent = a.rot;
+    b.addEventListener('click', function(){ a.aoClicar(b); });
+    pe.appendChild(b);
+  });
+  document.addEventListener('keydown', escFecha);
+}
+function escFecha(e){ if(e.key==='Escape') fecharModal(); }
+function fecharModal(){
+  document.getElementById('modal').innerHTML = '';
+  document.removeEventListener('keydown', escFecha);
+}
+
+
+function campoNum(id, rot, val, passo, dica){
+  return '<div class="campo"><label for="'+id+'">'+esc(rot)+'</label>'+
+    '<input type="number" id="'+id+'" step="'+passo+'" value="'+(val===null||val===undefined?'':val)+'" class="mono">'+
+    (dica?'<div class="dica">'+dica+'</div>':'')+'</div>';
+}
+
+/* ===========================================================================
+   CALCULADORA INDEPENDENTE: o que no Monitor vem da carteira, aqui vem da
+   base reduzida (api_calcBase). Nenhum dado financeiro chega a esta página.
+   =========================================================================== */
+window.PREC_SOLO = true;
+var S = { config:{ salario_minimo:1621 }, meta:{ usuario:'' }, empresas:[], porCnpj:{} };
+var SERIES = null;
+function ativos(){ return S.empresas; }
+function limparDrill(){}
+function fmtCNPJ(c){ c = String(c || '').replace(/\D/g,'');
+  return c.length === 14 ? c.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : c; }
+/* ===========================================================================
+   PRECIFICAÇÃO: CALCULADORA DE HONORÁRIOS (v4.2.0)
+   ---------------------------------------------------------------------------
+   Base: "Tabela de Preços - Exemplo 2026" (base comercial, 25/09).
+   A tabela define o honorário em % do salário mínimo (ou valor fixo) por
+   atividade, regime, funcionários e faturamento MENSAL, com três preços:
+   tabela, promocional e mínimo. Em cima dela entram os adicionais da aba
+   Particularidades, o RH+ e os serviços extras.
+
+   Onde a tabela comercial não tem linha para o perfil do cliente, a
+   calculadora usa a linha mais próxima e AVISA. Onde a tabela manda
+   "reunião", a calculadora não inventa preço.
+
+   O cálculo roda no navegador, igual no artefato e no Apps Script. O
+   servidor só guarda diretrizes e testes (Calculadora.gs).
+   =========================================================================== */
+var PREC = { carregado:false, carregando:false, diretrizes:{}, testes:[], podeEditar:true,
+             aba:'calcular', entrada:null, resultado:null };
+
+var PREC_ATIV = {servico:'Serviço', comercio:'Comércio / Indústria', patrimonial:'Patrimonial', medico:'Médicos'};
+var PREC_REG  = {SN:'Simples Nacional', LP:'Lucro Presumido', LR:'Lucro Real'};
+var INF = 1e15;
+
+/* Tabela base comercial.
+   [id, atividade, regime ('*' = qualquer), func de, func até, fat mensal de, fat até,
+    notas até (null = sem limite na linha), tipo ('pct' % do SM | 'fixo' R$ | 'reuniao'),
+    valor, promocional, mínimo, observação]
+   Promocional/mínimo vazios = regra geral (95% da tabela e 90% do promocional).
+   Linhas de reunião valem com OU: basta funcionários OU faturamento cair na
+   faixa ("mais de 5 funcionários ou acima de 100 mil"). Faixa [INF, INF]
+   = aquele lado não dispara. */
+var PREC_TABELA = [
+  ['sv_sn_sf','servico','SN',0,0,0,0,0,'pct',10,9.2,7,'Sem faturamento'],
+  ['sv_sn_30','servico','SN',0,0,0.01,30000,5,'fixo',329,289,259,''],
+  ['sv_sn_100','servico','SN',0,0,30000.01,100000,10,'pct',30,null,null,''],
+  ['sv_sn_f2','servico','SN',1,2,0.01,100000,null,'pct',35,30,25,'Mesma linha para até 30k e 30 a 100k'],
+  ['sv_sn_f5','servico','SN',3,5,100000.01,INF,null,'pct',50,45,40,'Tabela só define acima de 100 mil'],
+  ['sv_sn_f10','servico','SN',11,INF,INF,INF,null,'reuniao',0,null,null,'Mais de 10 funcionários'],
+  ['sv_lp_sf','servico','LP',0,0,0,0,0,'pct',10,9.2,7,'Sem faturamento'],
+  ['sv_lp_30','servico','LP',0,0,0.01,30000,10,'fixo',429,389,359,''],
+  ['sv_lp_60','servico','LP',0,0,30000.01,60000,10,'pct',40,null,null,''],
+  ['sv_lp_100','servico','LP',0,0,60000.01,100000,10,'pct',50,null,null,''],
+  ['sv_lp_f2','servico','LP',1,2,30000.01,100000,null,'pct',50,45,40,'Tabela só define de 31 a 100 mil'],
+  ['sv_lp_f5','servico','LP',3,5,100000.01,INF,null,'pct',80,75,70,'Tabela só define acima de 100 mil'],
+  ['sv_lp_f10','servico','LP',11,INF,INF,INF,null,'reuniao',0,null,null,'Mais de 10 funcionários'],
+  ['sv_lr_0','servico','LR',0,0,0,100000,null,'pct',100,100,null,'1 salário mínimo'],
+  ['sv_lr_5','servico','LR',1,5,0,100000,null,'pct',200,200,null,'2 salários mínimos'],
+  ['sv_lr_20','servico','LR',6,20,100000.01,500000,null,'pct',300,null,null,'3 salários mínimos'],
+  ['sv_lr_mais','servico','LR',21,INF,500000.01,INF,null,'reuniao',0,null,null,'Mais de 20 funcionários ou acima de 500 mil'],
+  ['pat_sf','patrimonial','*',0,0,0,0,0,'pct',20,null,null,'Sem faturamento'],
+  ['pat_100','patrimonial','*',0,0,0.01,100000,10,'pct',40,null,null,''],
+  ['med_sn','medico','SN',0,0,0,30000,10,'fixo',429,399,389,''],
+  ['med_lp','medico','LP',0,0,0,30000,10,'fixo',529,499,489,''],
+  ['co_sn_sf','comercio','SN',0,0,0,0,0,'pct',20,null,null,'Sem faturamento'],
+  ['co_sn_30','comercio','SN',0,0,0.01,30000,30,'pct',35,null,null,''],
+  ['co_sn_f2','comercio','SN',1,2,0.01,30000,30,'pct',50,null,null,'Tabela não diz o faturamento desta linha'],
+  ['co_sn_f5','comercio','SN',3,5,30000.01,100000,100,'pct',70,null,null,''],
+  ['co_sn_mais','comercio','SN',6,INF,100000.01,INF,null,'reuniao',0,null,null,'Mais de 5 funcionários ou acima de 100 mil'],
+  ['co_lp_sf','comercio','LP',0,0,0,0,0,'pct',30,null,null,'Sem faturamento'],
+  ['co_lp_30','comercio','LP',0,0,0.01,30000,30,'pct',50,null,null,'Com o SPED contratado pela MAS'],
+  ['co_lp_f2','comercio','LP',1,2,30000.01,100000,100,'pct',70,null,null,'Com o SPED contratado pela MAS'],
+  ['co_lp_f5','comercio','LP',3,5,100000.01,200000,100,'pct',100,null,null,'Com o SPED contratado pela MAS'],
+  ['co_lp_mais','comercio','LP',11,INF,200000.01,INF,null,'reuniao',0,null,null,'Mais de 10 funcionários ou acima de 200 mil'],
+  ['co_lr','comercio','LR',0,INF,0,INF,null,'reuniao',0,null,null,'Tabela: Lucro Real no comércio sempre com reunião']
+];
+var PREC_TAB = {};
+PREC_TABELA.forEach(function(r){ PREC_TAB[r[0]] = r; });
+
+/* Regras gerais. [chave, grupo, rótulo, valor, unidade, critério, fonte padrão] */
+var PREC_REGRAS = [
+  ['promo_pct','Negociação','Promocional (% da tabela)',95,'%','Quando a linha não traz valor próprio.','Base comercial'],
+  ['min_pct','Negociação','Mínimo (% do promocional)',90,'%','Abaixo do mínimo, pede reajuste.','Base comercial'],
+  ['func_add_1','Adicional por funcionário (serviço)','De 3 a 10 funcionários',10,'%','Sobre a tabela, quando a linha é de empresa sem funcionário.','Base comercial'],
+  ['func_add_2','Adicional por funcionário (serviço)','De 11 a 20 funcionários',40,'%','Idem.','Base comercial'],
+  ['func_add_3','Adicional por funcionário (serviço)','Acima de 20 funcionários',50,'%','Idem.','Base comercial'],
+  ['nf_limite','Particularidades','Notas inclusas por mês (serviço)',10,'notas','Acima disso cobra o adicional de nota.','Base comercial'],
+  ['nf_valor','Particularidades','Adicional de emissão de NF',99,'R$','Valor mensal quando passa do limite de notas.','Base comercial'],
+  ['part_caixa','Particularidades','Regime de caixa',20,'% do SM','Sugestão de solução: Nibo Conciliador ou BPO.','Base comercial'],
+  ['part_obra','Particularidades','Retenção ISS/INSS (obra)',20,'% do SM','Nibo Conciliador.','Base comercial'],
+  ['part_licit','Particularidades','Licitação (balancete e índices)',20,'% do SM','Nibo Conciliador.','Base comercial'],
+  ['rh_1','RH+ (por funcionários)','1 a 5',300,'R$','Não inclui a plataforma de ponto.','Base comercial'],
+  ['rh_2','RH+ (por funcionários)','6 a 10',450,'R$','','Base comercial'],
+  ['rh_3','RH+ (por funcionários)','11 a 20',650,'R$','','Base comercial'],
+  ['rh_4','RH+ (por funcionários)','21 a 35',950,'R$','','Base comercial'],
+  ['rh_5','RH+ (por funcionários)','36 a 50',1300,'R$','','Base comercial'],
+  ['rh_6','RH+ (por funcionários)','51 a 80',1800,'R$','Acima de 80: preço especial com a diretoria.','Base comercial'],
+  ['bpo_valor','Fora da tabela','BPO financeiro',0,'R$','A tabela cita o BPO como solução, sem preço mensal. Definir.',''],
+  ['visita_valor','Fora da tabela','Visita presencial',0,'R$','Não está na tabela (caso Cliente Piloto). Definir.',''],
+  ['sublimite','Fora da tabela','Sublimite do Simples',3600000,'R$','Acima disso, passa para o Prime (orientação da gestão). Soma matriz e filiais.','Gestão'],
+  ['risco_inad','Fora da tabela','Risco: título vencido',0,'%','O risco foi pedido no cálculo; a tabela não dá peso. Definir.',''],
+  ['risco_pend','Fora da tabela','Risco: pendência fiscal',0,'%','Idem.',''],
+  ['risco_media','Fora da tabela','Risco: complexidade média',0,'%','Idem.',''],
+  ['risco_alta','Fora da tabela','Risco: complexidade alta',0,'%','Idem.','']
+];
+var PREC_PADRAO = {};
+PREC_REGRAS.forEach(function(r){ PREC_PADRAO[r[0]] = r; });
+
+/* Particularidades marcáveis. [id, rótulo, regra de valor ou null, orientação] */
+var PREC_PARTIC = [
+  ['caixa','Regime de caixa','part_caixa','Oferecer Nibo Conciliador ou BPO'],
+  ['obra','Retenção ISS/INSS (obra)','part_obra','Nibo Conciliador'],
+  ['licit','Licitação (balancete e índices)','part_licit','Nibo Conciliador'],
+  ['aplic','Aplicação financeira',null,'Sem adicional'],
+  ['icms','ICMS / e-commerce no LP ou LR',null,'Consultoria à parte de 1 a 3 SM (classificação por produto, benefício)'],
+  ['especial','PERSE, equiparação hospitalar ou exportação/importação',null,'Sem valor na tabela: reunião'],
+  ['semsistema','Não tem sistema financeiro',null,'Consultoria de implementação: 1 SM'],
+  ['bancos','Mais de 5 bancos',null,'Nibo Conciliador ou BPO: 1 SM'],
+  ['volumediario','Alto volume de notas por dia',null,'BPO ou implementação de sistema de emissão: 1 SM'],
+  ['socios','Muitos sócios',null,'Sem valor na tabela: definir']
+];
+
+function precSM(){ return num(S.config && S.config.salario_minimo) || 1621; }
+function precD(ch){ return PREC.diretrizes[ch]; }
+function precV(ch){
+  var d = precD(ch);
+  if(d && d.valor !== undefined && d.valor !== null && d.valor !== '') { var v = Number(d.valor); if(!isNaN(v)) return v; }
+  if(PREC_PADRAO[ch]) return PREC_PADRAO[ch][3];
+  var m = /^(.*)\.(p|m)$/.exec(ch), r = PREC_TAB[m ? m[1] : ch];
+  if(!r) return 0;
+  return m ? (m[2] === 'p' ? r[10] : r[11]) : r[9];
+}
+/* promocional/mínimo em branco na planilha ficam "regra geral" (null) */
+function precVOpc(ch){
+  var d = precD(ch);
+  if(d && (d.valor === '' || d.valor === null)) return null;
+  if(d && d.valor !== undefined) return Number(d.valor);
+  return precV(ch);
+}
+function precStatus(ch){ var d = precD(ch); return (d && d.status) || 'Provisório'; }
+function precTodasChaves(){
+  return PREC_TABELA.map(function(r){ return r[0]; }).concat(PREC_REGRAS.map(function(r){ return r[0]; }));
+}
+function precProvisorias(){
+  return precTodasChaves().filter(function(ch){ return precStatus(ch) !== 'Validado'; }).length;
+}
+
+/* ------------------------------------------------------ dados da empresa */
+function precRegimeDe(e){
+  var t = String(e.tributacao || '').toLowerCase().trim();
+  if(/presumido/.test(t) || t === 'lp' || t === 'p') return 'LP';
+  if(/real/.test(t) || t === 'lr' || t === 'r') return 'LR';
+  return 'SN';
+}
+function precAtivDe(e){
+  var t = String(e.tipo || e.segmento || '').toLowerCase();
+  if(/com[eé]rcio|varejo|atacad|loja|ind[uú]stria/.test(t)) return 'comercio';
+  if(/patrimonial/.test(t)) return 'patrimonial';
+  if(/sa[uú]de|m[eé]dic/.test(t)) return 'medico';
+  return 'servico';
+}
+/* RBT12 real: 12 meses fechando na última competência da base, sem depender
+   do período escolhido em outra tela (o período reescreve e.rbt12). */
+function precRbt12(cnpj){
+  if(SERIES && SERIES.serieEmpresa && SERIES.meses){
+    var ult = SERIES.meses.length - 1, soma = 0;
+    (SERIES.serieEmpresa[cnpj] || []).forEach(function(p){
+      if(p[0] > ult - 12 && p[0] <= ult) soma += p[1] || 0;
+    });
+    return Math.round(soma * 100) / 100;
+  }
+  var e = S.porCnpj[cnpj];
+  return e ? num(e.rbt12) : 0;
+}
+function precNotasMes(e){
+  if(e._notas && e._notas.length){
+    var ult = e._notas.slice().sort(function(a,b){ return a.competencia < b.competencia ? -1 : 1; }).slice(-3);
+    return Math.round(ult.reduce(function(a,n){ return a + (n.qtd || 0); }, 0) / ult.length);
+  }
+  if(SERIES && SERIES.porEmpresa && SERIES.porEmpresa[e.cnpj]){
+    var anos = Object.keys(SERIES.porEmpresa[e.cnpj]).sort();
+    var a = SERIES.porEmpresa[e.cnpj][anos[anos.length - 1]];
+    if(a && a[4]) return Math.round((a[1] || 0) / a[4]);
+  }
+  return 0;
+}
+function precOutrosEstab(e){
+  var raiz = String(e.cnpj || '').slice(0, 8), soma = 0, qtd = 0;
+  if(raiz.length < 8) return {rbt:0, qtd:0};
+  ativos().forEach(function(z){
+    if(z.cnpj !== e.cnpj && String(z.cnpj).slice(0, 8) === raiz){ soma += precRbt12(z.cnpj); qtd++; }
+  });
+  return {rbt:Math.round(soma * 100) / 100, qtd:qtd};
+}
+function precEntradaVazia(){
+  return { cnpj:'', empresa:'', ativ:'servico', regime:'SN', rbt12:0, outrosRbt:0, outrosQtd:0,
+    funcionarios:0, funcDaBase:false, notasMes:0, part:{}, rhmais:false, bpo:false, visitas:'nenhuma',
+    extraValor:0, extraDesc:'', inad:false, pend:false, complexidade:'baixa', atual:null };
+}
+function precEntradaDe(e){
+  var o = precOutrosEstab(e);
+  return Object.assign(precEntradaVazia(), {
+    cnpj:e.cnpj, empresa:e.empresa, ativ:precAtivDe(e), regime:precRegimeDe(e),
+    rbt12:precRbt12(e.cnpj), outrosRbt:o.rbt, outrosQtd:o.qtd,
+    funcionarios:num(e.qtdFuncionarios), funcDaBase:!!e.qtdFuncionarios, notasMes:precNotasMes(e),
+    inad:num(e.valorVencido) > 0, pend:!!e.pendenciaFiscal,
+    atual:e.naoCobramos ? null : e.honorarioAtual
+  });
+}
+
+/* ------------------------------------------------ escolha da linha da tabela */
+function precLinha(ativ, regime, func, fatMes){
+  function dentro(v, a, b){ return v >= a && v <= b; }
+  function dist(v, a, b){ return v < a ? a - v : v > b ? v - b : 0; }
+  function candidatas(at){
+    return PREC_TABELA.filter(function(r){ return r[1] === at && (r[2] === '*' || r[2] === regime); });
+  }
+  var todas = candidatas(ativ);
+  var reuniao = todas.filter(function(r){ return r[8] === 'reuniao' &&
+    (dentro(func, r[3], r[4]) || dentro(fatMes, r[5], r[6])); })[0];
+  if(reuniao) return {linha:reuniao, exata:true, usouServico:false};
+  var lista = todas.filter(function(r){ return r[8] !== 'reuniao'; }), usouServico = false;
+  var exata = lista.filter(function(r){ return dentro(func, r[3], r[4]) && dentro(fatMes, r[5], r[6]); })[0];
+  if(!exata && ativ === 'medico'){ return precLinhaMedico(regime, func, fatMes); }
+  if(exata) return {linha:exata, exata:true, usouServico:usouServico};
+  if(!lista.length) return {linha:null, exata:false, usouServico:usouServico};
+  /* Sem linha exata: a mais próxima. Funcionário pesa mais que faturamento,
+     porque muda o trabalho da folha; 1 funcionário ~ R$ 20 mil de faturamento. */
+  var melhor = null, menor = INF;
+  lista.forEach(function(r){
+    var d = dist(func, r[3], r[4]) * 20000 + dist(fatMes, r[5], r[6]);
+    if(d < menor){ menor = d; melhor = r; }
+  });
+  return {linha:melhor, exata:false, usouServico:usouServico};
+}
+function precLinhaMedico(regime, func, fatMes){
+  var r = precLinha('servico', regime, func, fatMes);
+  r.usouServico = true;
+  return r;
+}
+function precMil(n){
+  if(n >= 1e6) return 'R$ ' + String(Math.round(n / 1e5) / 10).replace('.', ',') + ' mi';
+  return 'R$ ' + Math.round(n / 1000) + ' mil';
+}
+function precFaixaTxt(r){
+  var f = r[4] >= INF ? (r[3] === 0 ? 'qualquer nº de func.' : 'mais de ' + (r[3] - 1) + ' func.') :
+          r[4] === 0 ? 'sem funcionário' : (r[3] === r[4] ? r[3] : r[3] + ' a ' + r[4]) + ' func.';
+  var fat = r[5] >= INF ? '' : r[6] === 0 ? 'sem faturamento' :
+            r[6] >= INF ? (r[5] <= 0.01 ? 'qualquer faturamento' : 'acima de ' + precMil(Math.floor(r[5])) + '/mês') :
+            (r[5] <= 0.01 ? 'até ' : precMil(Math.floor(r[5])) + ' a ') + precMil(r[6]) + '/mês';
+  if(r[8] === 'reuniao' && r[3] > 0 && fat) return f + ' ou ' + fat;
+  return fat ? f + ', ' + fat : f;
+}
+function precValorLinha(r, campo){
+  var sm = precSM();
+  var ch = r[0] + (campo === 'p' ? '.p' : campo === 'm' ? '.m' : '');
+  var v = campo ? precVOpc(ch) : precV(ch);
+  if(v === null || v === undefined || isNaN(v)) return null;
+  return r[8] === 'pct' ? Math.floor(v / 100 * sm) : v;
+}
+
+/* ---------------------------------------------------------- motor de cálculo */
+function precCalcular(x){
+  var sm = precSM(), linhas = [], avisos = [], orient = [];
+  function add(rot, val, det){ linhas.push({rot:rot, val:val, det:det || ''}); }
+  var fatMes = num(x.rbt12) / 12;
+  var func = num(x.funcionarios);
+  var consol = num(x.rbt12) + num(x.outrosRbt);
+  var esc = precLinha(x.ativ, x.regime, func, fatMes);
+  var r = esc.linha;
+  var res = { tabela:null, promo:null, minimo:null, reuniao:false, linha:r, exata:esc.exata,
+              linhas:linhas, avisos:avisos, orient:orient, fatMes:fatMes };
+
+  if(!r){ res.reuniao = true; avisos.push('A tabela não tem nenhuma linha para esta atividade e regime.'); return precFechar(res, x); }
+  if(esc.usouServico) avisos.push('A tabela comercial só define médicos até R$ 30 mil/mês. Usei a tabela de serviço.');
+  if(!esc.exata) avisos.push('A tabela não tem linha exata para ' + fmtNum(func) + ' funcionário(s) com ' +
+    fmtBRL(fatMes) + '/mês. Usei a mais próxima: ' + precFaixaTxt(r) + '.');
+  if(r[8] === 'reuniao'){
+    res.reuniao = true;
+    avisos.push('Pela tabela, este perfil precisa de reunião para definir preço (' + (r[12] || precFaixaTxt(r)) + ').');
+    return precFechar(res, x);
+  }
+
+  var base = precValorLinha(r, ''), pr = precValorLinha(r, 'p'), mi = precValorLinha(r, 'm');
+  if(pr === null) pr = Math.floor(base * precV('promo_pct') / 100);
+  if(mi === null) mi = Math.floor(pr * precV('min_pct') / 100);
+  add('Tabela: ' + PREC_ATIV[r[1]] + (r[2] !== '*' ? ' · ' + PREC_REG[r[2]] : ''), base,
+    precFaixaTxt(r) + (r[8] === 'pct' ? ' · ' + String(precV(r[0])).replace('.', ',') + '% do SM' : ' · valor fixo'));
+  var adic = 0;
+
+  if((x.ativ === 'servico' || x.ativ === 'medico' || x.ativ === 'patrimonial') && r[4] === 0 && func >= 3){
+    var k = func > 20 ? 'func_add_3' : func > 10 ? 'func_add_2' : 'func_add_1';
+    var fa = Math.floor(base * precV(k) / 100);
+    add('Adicional por funcionário', fa, fmtNum(func) + ' funcionários · +' + precV(k) + '%');
+    adic += fa;
+  }
+  var limNotas = r[7] === null ? null : r[7];
+  if(x.ativ !== 'comercio' && num(x.notasMes) > precV('nf_limite')){
+    add('Emissão de notas', precV('nf_valor'), fmtNum(x.notasMes) + ' notas/mês, acima de ' + precV('nf_limite'));
+    adic += precV('nf_valor');
+  } else if(x.ativ === 'comercio' && limNotas !== null && num(x.notasMes) > limNotas){
+    avisos.push(fmtNum(x.notasMes) + ' notas/mês passa do limite da linha (' + limNotas + '). A tabela não diz quanto cobrar a mais.');
+  }
+  PREC_PARTIC.forEach(function(p){
+    if(!(x.part || {})[p[0]]) return;
+    if(p[2]){ var v = Math.floor(precV(p[2]) / 100 * sm); add(p[1], v, precV(p[2]) + '% do SM · ' + p[3]); adic += v; }
+    else orient.push(p[1] + ': ' + p[3]);
+  });
+  if(x.rhmais){
+    if(func > 80) avisos.push('RH+ acima de 80 funcionários: preço especial com a diretoria.');
+    else if(func < 1) avisos.push('RH+ marcado sem funcionários informados.');
+    else {
+      var kk = func <= 5 ? 'rh_1' : func <= 10 ? 'rh_2' : func <= 20 ? 'rh_3' : func <= 35 ? 'rh_4' : func <= 50 ? 'rh_5' : 'rh_6';
+      add('RH+', precV(kk), fmtNum(func) + ' funcionários'); adic += precV(kk);
+    }
+  }
+  if(x.bpo){
+    if(precV('bpo_valor') > 0){ add('BPO financeiro', precV('bpo_valor'), 'valor mensal'); adic += precV('bpo_valor'); }
+    else avisos.push('BPO marcado, mas ainda não tem preço definido.');
+  }
+  var vis = x.visitas === 'mensal' ? 1 : x.visitas === 'trimestral' ? 1/3 : 0;
+  if(vis){
+    if(precV('visita_valor') > 0){ var vv = Math.round(vis * precV('visita_valor') * 100) / 100;
+      add('Visitas presenciais', vv, x.visitas === 'mensal' ? '1 por mês' : '1 a cada 3 meses'); adic += vv; }
+    else avisos.push('Visitas presenciais marcadas, mas o valor da visita ainda não foi definido.');
+  }
+  if(num(x.extraValor) > 0){ add('Extra: ' + (x.extraDesc || 'sem descrição'), num(x.extraValor), 'informado'); adic += num(x.extraValor); }
+
+  var pctRisco = 0, riscos = [];
+  [['inad', x.inad, 'risco_inad', 'título vencido'], ['pend', x.pend, 'risco_pend', 'pendência fiscal'],
+   ['m', x.complexidade === 'media', 'risco_media', 'complexidade média'],
+   ['a', x.complexidade === 'alta', 'risco_alta', 'complexidade alta']].forEach(function(z){
+    if(!z[1]) return;
+    if(precV(z[2]) > 0){ pctRisco += precV(z[2]); riscos.push(z[3]); }
+    else orient.push('Risco apontado (' + z[3] + '), ainda sem peso no preço.');
+  });
+  var somaSemRisco = base + adic;
+  var vRisco = pctRisco ? Math.floor(somaSemRisco * pctRisco / 100) : 0;
+  if(vRisco) add('Risco do cliente', vRisco, riscos.join(', ') + ' · +' + pctRisco + '%');
+
+  if(x.regime === 'SN' && consol > precV('sublimite'))
+    avisos.push('Faturamento de 12 meses ' + (num(x.outrosQtd) ? 'somando matriz e filiais ' : '') + '(' + fmtBRL(consol) +
+      ') passa do sublimite. ICMS e ISS saem do DAS: pela orientação da gestão, o cliente vai para o Prime.');
+
+  res.tabela = base + adic + vRisco;
+  res.promo = pr + adic + vRisco;
+  res.minimo = mi + adic + vRisco;
+  return precFechar(res, x);
+}
+function precFechar(res, x){
+  var atual = (x.atual === null || x.atual === undefined || x.atual === '') ? null : num(x.atual);
+  res.atual = atual;
+  res.sugerido = res.tabela;
+  res.diferenca = (atual === null || res.tabela === null) ? null : res.tabela - atual;
+  res.pct = (atual && res.diferenca !== null) ? res.diferenca / atual : null;
+  res.faltaMinimo = (atual === null || res.minimo === null) ? null : Math.max(0, res.minimo - atual);
+  res.situacao = res.reuniao ? 'Reunião'
+    : atual === null ? 'Sem honorário'
+    : atual < res.minimo ? 'Abaixo' : atual < res.tabela ? 'Negociado' : 'Na tabela';
+  return res;
+}
+function precSelo(sit){
+  var m = {Abaixo:['selo-alerta','Abaixo do mínimo'], Negociado:['selo-atencao','Entre mínimo e tabela'],
+           'Na tabela':['selo-ok','Na tabela ou acima'], 'Reunião':['selo-info','Precisa de reunião'],
+           'Sem honorário':['selo-neutro', window.PREC_SOLO ? 'Proposta' : 'Sem honorário']};
+  var s = m[sit] || m['Sem honorário'];
+  return '<span class="selo ' + s[0] + '">' + s[1] + '</span>';
+}
+
+/* -------------------------------------------- busca de cliente com sugestões
+   Digita parte do nome, do CNPJ ou o código Domínio: aparecem até 8 empresas
+   da base. Clicar (ou Enter) preenche a calculadora com os dados do cadastro. */
+function precNorm(s){
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+function precBuscarEmpresas(termo){
+  var t = precNorm(termo).trim();
+  if(t.length < 2) return [];
+  var dig = t.replace(/\D/g, ''), toks = t.split(/\s+/).filter(Boolean);
+  var achadas = [];
+  ativos().forEach(function(e){
+    if(e._busca === undefined) e._busca = precNorm(e.empresa);
+    var porNome = toks.every(function(k){ return e._busca.indexOf(k) >= 0; });
+    var porNum = dig.length >= 3 && (String(e.cnpj).indexOf(dig) >= 0 || String(e.codigoDominio || '') === dig);
+    if(!porNome && !porNum) return;
+    var peso = e._busca.indexOf(toks[0] || '') === 0 ? 0 : porNome ? 1 : 2;
+    achadas.push({e:e, peso:peso});
+  });
+  achadas.sort(function(a,b){ return a.peso - b.peso || String(a.e.empresa).localeCompare(String(b.e.empresa)); });
+  return achadas.slice(0, 8).map(function(a){ return a.e; });
+}
+function precCampoCliente(x){
+  var valor = x.empresa ? x.empresa + ' · ' + ((S.porCnpj[x.cnpj] || {}).cnpjFmt || '') : '';
+  return '<div class="campo" style="margin-bottom:12px;position:relative;"><label for="pc-emp">Cliente da carteira</label>' +
+    '<input id="pc-emp" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="pc-sug" ' +
+      'placeholder="Digite o nome, CNPJ ou código Domínio" value="' + esc(valor) + '">' +
+    '<div id="pc-sug" role="listbox" hidden style="position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:30;' +
+      'background:var(--surface);border:1px solid var(--border-forte);border-radius:var(--r-m);' +
+      'box-shadow:var(--sombra-g);max-height:320px;overflow-y:auto;"></div>' +
+    '<div class="dica">' + (window.PREC_SOLO
+      ? 'Ao escolher, regime, atividade, faturamento, notas e CNPJs da mesma raiz entram sozinhos. Tudo pode ser ajustado.'
+      : 'Ao escolher, os dados do Monitor entram sozinhos, inclusive o honorário atual. Tudo pode ser ajustado.') +
+    '</div></div>';
+}
+function precLigarCampoCliente(aoEscolher){
+  var inp = document.getElementById('pc-emp'), caixa = document.getElementById('pc-sug');
+  var lista = [], atual = -1;
+  var rotAtiv = {servico:'Serviço', comercio:'Comércio', patrimonial:'Patrimonial', medico:'Saúde'};
+  function fechar(){ caixa.hidden = true; inp.setAttribute('aria-expanded', 'false'); atual = -1; }
+  function marcar(){
+    [].forEach.call(caixa.querySelectorAll('[data-i]'), function(b){
+      var on = Number(b.dataset.i) === atual;
+      b.style.background = on ? 'var(--verde-claro)' : 'transparent';
+      if(on) b.scrollIntoView({block:'nearest'});
+    });
+  }
+  function pintar(){
+    lista = precBuscarEmpresas(inp.value);
+    if(precNorm(inp.value).trim().length < 2){ fechar(); return; }
+    caixa.innerHTML = lista.length ? lista.map(function(e, i){
+      var x = precEntradaDe(e);
+      return '<button type="button" role="option" data-i="' + i + '" style="display:block;width:100%;text-align:left;' +
+        'border:0;border-bottom:1px solid var(--border);background:transparent;padding:8px 12px;cursor:pointer;">' +
+        '<div style="font-weight:600;font-size:13px;">' + esc(e.empresa) + '</div>' +
+        '<div class="dica" style="margin:0;">' + esc(e.cnpjFmt) + (e.codigoDominio ? ' · cód. ' + esc(e.codigoDominio) : '') +
+          ' · ' + esc(PREC_REG[x.regime] || '') + ' · ' + esc(rotAtiv[x.ativ] || '') +
+          (x.rbt12 ? ' · ' + fmtBRL(x.rbt12 / 12) + '/mês' : ' · sem faturamento') + '</div></button>';
+    }).join('') : '<div class="dica" style="padding:10px 12px;margin:0;">Nenhuma empresa encontrada na base. ' +
+      'Pode seguir preenchendo como cliente novo.</div>';
+    caixa.hidden = false; inp.setAttribute('aria-expanded', 'true'); atual = lista.length ? 0 : -1; marcar();
+  }
+  function escolher(i){
+    var e = lista[i]; if(!e) return;
+    fechar(); inp.value = e.empresa + ' · ' + e.cnpjFmt;
+    setTimeout(function(){ aoEscolher(e); }, 0);
+  }
+  inp.addEventListener('input', pintar);
+  inp.addEventListener('focus', function(){ if(!PREC.entrada.cnpj && precNorm(inp.value).trim().length >= 2) pintar(); });
+  inp.addEventListener('keydown', function(ev){
+    if(caixa.hidden) return;
+    if(ev.key === 'ArrowDown'){ ev.preventDefault(); if(lista.length){ atual = (atual + 1) % lista.length; marcar(); } }
+    else if(ev.key === 'ArrowUp'){ ev.preventDefault(); if(lista.length){ atual = (atual - 1 + lista.length) % lista.length; marcar(); } }
+    else if(ev.key === 'Enter'){ ev.preventDefault(); if(atual >= 0) escolher(atual); }
+    else if(ev.key === 'Escape'){ fechar(); }
+  });
+  caixa.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+  caixa.addEventListener('click', function(ev){
+    var b = ev.target.closest ? ev.target.closest('[data-i]') : null;
+    if(b) escolher(Number(b.dataset.i));
+  });
+  caixa.addEventListener('mousemove', function(ev){
+    var b = ev.target.closest ? ev.target.closest('[data-i]') : null;
+    if(b && Number(b.dataset.i) !== atual){ atual = Number(b.dataset.i); marcar(); }
+  });
+  inp.addEventListener('blur', function(){ setTimeout(fechar, 120); });
+}
+
+/* --------------------------------------------------------------- carga */
+function precCarregar(aoPronto){
+  if(PREC.carregado){ aoPronto(); return; }
+  if(PREC.carregando) return;
+  PREC.carregando = true;
+  chamar('api_precCarregar', [], function(res){
+    PREC.carregando = false; PREC.carregado = true;
+    PREC.diretrizes = res.diretrizes || {};
+    PREC.testes = res.testes || [];
+    PREC.podeEditar = res.podeEditar !== false;
+    aoPronto();
+  }, function(){
+    PREC.carregando = false;
+    document.getElementById('conteudo').innerHTML =
+      '<div class="vazio"><div class="vazio-ico">!</div>Não foi possível ler as diretrizes de preço.' +
+      '<div style="margin-top:10px;"><button class="btn btn-1" onclick="location.reload()">Tentar de novo</button></div></div>';
+  });
+}
+
+/* ================================================================ TELA */
+function telaPrecificacao(param){
+  if(param && S.porCnpj[param]){ PREC.aba = 'calcular'; }
+  document.getElementById('conteudo').innerHTML =
+    '<div class="carregando"><div class="giro"></div>Carregando a tabela de preços…</div>';
+  comSeries(function(){ precCarregar(function(){ precDesenhar(param); }); });
+}
+
+function precDesenhar(param){
+  var abas = [['calcular','Calcular'],['carteira','Carteira inteira'],['testes','Testes com clientes'],['diretrizes','Diretrizes']]
+    .filter(function(a){ return !(window.PREC_SOLO && a[0] === 'carteira'); });
+  var prov = precProvisorias(), total = precTodasChaves().length;
+  document.getElementById('topo-meta').textContent = 'Base: tabela de preços comercial · ' +
+    (prov ? prov + ' de ' + total + ' regras ainda não validadas' : 'todas as regras validadas');
+  document.getElementById('conteudo').innerHTML =
+    (prov ? '<div class="aviso aviso-atencao"><span class="aviso-ico">!</span><div>' +
+      'A tabela ainda não foi validada pela liderança e tem perfis sem linha definida. ' +
+      'Use para testar, não para mandar proposta.</div></div>' : '') +
+    '<div class="acoes" style="margin-bottom:14px;">' + abas.map(function(a){
+      return '<button class="btn btn-p ' + (PREC.aba === a[0] ? 'btn-1' : 'btn-fantasma') +
+        '" data-prec-aba="' + a[0] + '">' + a[1] + '</button>';
+    }).join('') + '</div><div id="prec-corpo"></div>';
+  document.querySelectorAll('[data-prec-aba]').forEach(function(b){
+    b.addEventListener('click', function(){ PREC.aba = b.dataset.precAba; limparDrill(); precDesenhar(); });
+  });
+  if(PREC.aba === 'testes') precAbaTestes();
+  else if(PREC.aba === 'diretrizes') precAbaDiretrizes();
+  else precAbaCalcular(param);
+}
+
+/* ---------------------------------------------------------- aba Calcular */
+function precAbaCalcular(param){
+  if(param && S.porCnpj[param]){ PREC.entrada = precEntradaDe(S.porCnpj[param]); }
+  if(!PREC.entrada) PREC.entrada = precEntradaVazia();
+  var x = PREC.entrada;
+  function sel(id, rot, val, ops){
+    return '<div class="campo"><label for="' + id + '">' + rot + '</label><select id="' + id + '">' +
+      ops.map(function(o){ return '<option value="' + o[0] + '"' + (o[0] === val ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
+      '</select></div>';
+  }
+  function chk(id, rot, val){
+    return '<label class="chk"><input type="checkbox" id="' + id + '"' + (val ? ' checked' : '') + '> ' + esc(rot) + '</label>';
+  }
+  var dicaFat = 'Média de ' + fmtBRL(num(x.rbt12) / 12) + '/mês (a tabela usa o faturamento mensal).' +
+    (num(x.outrosQtd) ? ' Com ' + x.outrosQtd + ' outro(s) CNPJ da mesma raiz, somam ' +
+      fmtBRL(num(x.rbt12) + num(x.outrosRbt)) + ' em 12 meses (vale para o sublimite).' : '');
+  document.getElementById('prec-corpo').innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start;">' +
+    '<div class="cartao" style="padding:18px 20px;">' +
+      precCampoCliente(x) +
+      '<div class="form-grade">' +
+        sel('pc-ativ','Atividade',x.ativ,[['servico','Serviço'],['comercio','Comércio / Indústria'],['patrimonial','Patrimonial'],['medico','Médicos']]) +
+        sel('pc-reg','Regime tributário',x.regime,[['SN','Simples Nacional'],['LP','Lucro Presumido'],['LR','Lucro Real']]) +
+        campoNum('pc-rbt','Faturamento dos últimos 12 meses (R$)',x.rbt12,1000,dicaFat) +
+        campoNum('pc-func','Funcionários',x.funcionarios,1, x.cnpj && !x.funcDaBase ? 'A base não tem o quadro: informe.' : '') +
+        campoNum('pc-notas','Notas por mês',x.notasMes,1,'Média dos últimos meses quando existe na base.') +
+      '</div>' +
+      '<div class="divisor"></div><div style="font-weight:700;font-size:13px;margin-bottom:8px;">Particularidades</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 12px;">' +
+        PREC_PARTIC.map(function(p){ return chk('pc-p-' + p[0], p[1], (x.part || {})[p[0]]); }).join('') + '</div>' +
+      '<div class="divisor"></div><div style="font-weight:700;font-size:13px;margin-bottom:8px;">Produtos e extras</div>' +
+      '<div class="acoes">' + chk('pc-rh','RH+',x.rhmais) + chk('pc-bpo','BPO financeiro',x.bpo) + '</div>' +
+      '<div class="form-grade" style="margin-top:12px;">' +
+        sel('pc-vis','Visitas presenciais',x.visitas,[['nenhuma','Nenhuma'],['mensal','Mensal'],['trimestral','Trimestral']]) +
+        campoNum('pc-extra','Outro serviço extra (R$/mês)',x.extraValor,10,'') +
+        '<div class="campo" style="grid-column:1/-1;"><label for="pc-extradesc">Qual serviço extra</label>' +
+          '<input id="pc-extradesc" value="' + esc(x.extraDesc) + '" placeholder="Ex.: apoio em caixa e sistema"></div>' +
+      '</div>' +
+      '<div class="divisor"></div><div style="font-weight:700;font-size:13px;margin-bottom:8px;">Risco do cliente</div>' +
+      '<div class="acoes">' + chk('pc-pend','Tem pendência fiscal',x.pend) + '</div>' +
+      '<div class="form-grade" style="margin-top:12px;">' +
+        sel('pc-comp','Complexidade da operação',x.complexidade,[['baixa','Baixa'],['media','Média'],['alta','Alta']]) +
+      '</div>' +
+      '<div class="acoes" style="margin-top:16px;"><button class="btn btn-fantasma btn-p" id="pc-limpar">Cliente novo</button></div>' +
+    '</div>' +
+    '<div id="pc-res"></div></div>';
+
+  var ids = ['pc-ativ','pc-reg','pc-rbt','pc-func','pc-notas','pc-rh','pc-bpo','pc-vis','pc-extra',
+             'pc-extradesc','pc-pend','pc-comp'].concat(PREC_PARTIC.map(function(p){ return 'pc-p-' + p[0]; }));
+  function ler(){
+    var g = function(id){ return document.getElementById(id); };
+    var part = {};
+    PREC_PARTIC.forEach(function(p){ if(g('pc-p-' + p[0]).checked) part[p[0]] = true; });
+    PREC.entrada = Object.assign({}, PREC.entrada, {
+      ativ:g('pc-ativ').value, regime:g('pc-reg').value, rbt12:num(g('pc-rbt').value),
+      funcionarios:num(g('pc-func').value), notasMes:num(g('pc-notas').value),
+      atual:null, part:part, rhmais:g('pc-rh').checked, bpo:g('pc-bpo').checked,
+      visitas:g('pc-vis').value, extraValor:num(g('pc-extra').value), extraDesc:g('pc-extradesc').value,
+      inad:false, pend:g('pc-pend').checked, complexidade:g('pc-comp').value
+    });
+    precPintarResultado();
+  }
+  ids.forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', ler);
+  });
+  precLigarCampoCliente(function(e){ PREC.entrada = precEntradaDe(e); precAbaCalcular(); });
+  document.getElementById('pc-limpar').addEventListener('click', function(){
+    PREC.entrada = precEntradaVazia();
+    if(location.hash !== '#/precificacao') location.hash = '#/precificacao'; else precAbaCalcular();
+  });
+  precPintarResultado();
+}
+
+function precPintarResultado(){
+  var x = PREC.entrada, r = precCalcular(x);
+  PREC.resultado = r;
+  var topo;
+  if(r.reuniao){
+    topo = '<div><div class="kv-rot">Honorário sugerido</div>' +
+      '<div style="font-size:24px;font-weight:700;color:var(--info);line-height:1.25;">Precisa de reunião</div>' +
+      '<div class="dica">A tabela não dá preço para este perfil.</div></div>';
+  } else {
+    topo = '<div><div class="kv-rot">Preço de tabela</div>' +
+      '<div class="mono" style="font-size:30px;font-weight:700;color:var(--verde);line-height:1.2;">' + fmtBRL(r.tabela) + '</div>' +
+      '<div class="dica">' + (x.empresa ? esc(x.empresa) : 'Cliente novo') + '</div></div>';
+  }
+  var frase = r.reuniao ? 'Definir o preço em reunião, como a tabela pede.'
+    : 'Proposta pela tabela: preço cheio, promocional para negociar e mínimo aceito.';
+  var html =
+    '<div class="cartao" style="padding:18px 20px;">' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">' +
+        topo + (r.reuniao ? precSelo('Reunião') : '') + '</div>' +
+      (!r.reuniao ? '<div class="kv" style="margin-top:14px;">' +
+        '<div><div class="kv-rot">Promocional</div><div class="kv-val mono">' + fmtBRL(r.promo) + '</div></div>' +
+        '<div><div class="kv-rot">Mínimo</div><div class="kv-val mono">' + fmtBRL(r.minimo) + '</div></div>' +
+      '</div>' : '') +
+      '<div style="margin-top:12px;font-size:13px;">' + esc(frase) + '</div>' +
+      (r.avisos.length ? '<div class="aviso aviso-atencao" style="margin-top:12px;"><span class="aviso-ico">!</span><div>' +
+        r.avisos.map(esc).join('<br>') + '</div></div>' : '') +
+      (r.orient.length ? '<div class="aviso aviso-info" style="margin-top:8px;"><span class="aviso-ico">i</span><div>' +
+        r.orient.map(esc).join('<br>') + '</div></div>' : '') +
+      (r.linhas.length ? '<div class="divisor"></div>' +
+      '<div style="font-weight:700;font-size:13px;margin-bottom:8px;">Como chegou nesse valor</div>' +
+      '<div class="tab-caixa"><table><thead><tr><th>Item</th><th>Por quê</th><th>Valor</th></tr></thead><tbody>' +
+        r.linhas.map(function(l){
+          return '<tr><td style="font-size:12px;">' + esc(l.rot) + '</td><td style="font-size:12px;color:var(--texto-suave);">' +
+            esc(l.det) + '</td><td class="mono">' + fmtBRL(Math.round(l.val * 100) / 100) + '</td></tr>';
+        }).join('') +
+        '<tr><td><b>Preço de tabela</b></td><td></td><td class="mono"><b>' + fmtBRL(r.tabela) + '</b></td></tr>' +
+      '</tbody></table></div>' : '') +
+      '<div class="acoes" style="margin-top:14px;">' +
+        '<button class="btn btn-1 btn-p" id="pc-salvar">Salvar como teste</button>' +
+        (x.cnpj && !window.PREC_SOLO ? '<a class="btn btn-fantasma btn-p" href="#/empresa/' + esc(x.cnpj) + '">Ficha da empresa</a>' : '') +
+      '</div>' +
+    '</div>';
+  document.getElementById('pc-res').innerHTML = html;
+  document.getElementById('pc-salvar').addEventListener('click', precSalvarTeste);
+}
+
+function precSalvarTeste(){
+  var x = PREC.entrada, r = PREC.resultado;
+  abrirModal('Salvar teste',
+    '<div class="form-grade" style="grid-template-columns:1fr;">' +
+      '<div class="campo"><label for="pt-nome">Cliente</label><input id="pt-nome" value="' + esc(x.empresa) + '" placeholder="Nome do cliente ou prospect"></div>' +
+      '<div class="campo"><label for="pt-quem">Quem testou</label><input id="pt-quem" value="' + esc(S.meta.usuario || '') + '"></div>' +
+      '<div class="campo"><label for="pt-obs">O que achou do resultado</label>' +
+        '<textarea id="pt-obs" rows="3" placeholder="Ex.: ficou alto para o volume real, rever a linha"></textarea></div>' +
+    '</div>',
+    [{rot:'Salvar', primario:true, aoClicar:function(b){
+      var emp = document.getElementById('pt-nome').value.trim();
+      if(!emp){ avisar('Informe o cliente.', 'erro'); return; }
+      var quem = document.getElementById('pt-quem').value.trim();
+      try{ if(quem) localStorage.setItem('escr_usuario', quem); }catch(e){}
+      ocupado(b, true);
+      chamar('api_precSalvarTeste', [{
+        cnpj:x.cnpj || '', empresa:emp, atual:null, sugerido:r.tabela, diferenca:null,
+        situacao:r.reuniao ? 'Reunião' : 'Proposta', usuario:quem, observacao:document.getElementById('pt-obs').value.trim(), entrada:x
+      }], function(res){
+        ocupado(b, false); fecharModal();
+        PREC.testes.unshift(res.teste);
+        avisar(res.mensagem || 'Teste salvo.', 'ok');
+      }, function(){ ocupado(b, false); });
+    }}]);
+}
+
+/* ------------------------------------------------------------ aba Testes */
+function precAbaTestes(){
+  var t = PREC.testes.slice().sort(function(a,b){ return String(b.data || '').localeCompare(String(a.data || '')); });
+  var clientes = {};
+  t.forEach(function(x){ clientes[x.cnpj || x.empresa] = 1; });
+  var Cliente Piloto = ativos().filter(function(e){ return /Cliente Piloto/i.test(e.empresa); })[0];
+  function v(n){ return (n === null || n === '' || n === undefined) ? '—' : fmtBRL(n); }
+  document.getElementById('prec-corpo').innerHTML = !t.length ?
+    '<div class="cartao"><div class="vazio"><div class="vazio-ico">◎</div>Nenhum teste salvo ainda.' +
+      '<div class="dica" style="margin-top:6px;">Calcule um cliente real e clique em "Salvar como teste".</div>' +
+      (Cliente Piloto ? '<div style="margin-top:12px;"><a class="btn btn-1" href="#/precificacao/' + esc(Cliente Piloto.cnpj) + '">Começar pela Cliente Piloto</a></div>' : '') +
+    '</div></div>' :
+    '<div style="font-size:13.5px;margin-bottom:12px;"><b>' + fmtNum(t.length) + '</b> teste(s) com <b>' +
+      fmtNum(Object.keys(clientes).length) + '</b> cliente(s). O valor mostrado é o do dia do teste: ' +
+      'se a tabela mudou, clique em Recalcular.</div>' +
+    '<div class="tab-caixa"><table><thead><tr><th>Data</th><th>Cliente</th><th>Tabela</th>' +
+      '<th>Quem testou</th><th>Comentário</th><th></th></tr></thead><tbody>' +
+    t.map(function(x){
+      return '<tr><td style="font-size:12px;">' + fmtData(x.data) + '</td>' +
+        '<td style="font-size:12px;"><b>' + esc(x.empresa) + '</b></td>' +
+        '<td class="mono">' + (x.situacao === 'Reunião' ? 'reunião' : v(x.sugerido)) + '</td>' +
+        '<td style="font-size:12px;">' + esc(x.usuario || '—') + '</td>' +
+        '<td style="font-size:12px;max-width:260px;">' + esc(x.observacao || '') + '</td>' +
+        '<td><div class="acoes"><button class="btn btn-fantasma btn-p" data-pt-abrir="' + esc(x.id) + '">Recalcular</button>' +
+        '<button class="btn btn-fantasma btn-p" data-pt-excluir="' + esc(x.id) + '">Excluir</button></div></td></tr>';
+    }).join('') + '</tbody></table></div>';
+
+  document.querySelectorAll('[data-pt-abrir]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var x = PREC.testes.filter(function(z){ return z.id === b.dataset.ptAbrir; })[0];
+      if(!x) return;
+      PREC.entrada = Object.assign(precEntradaVazia(), x.entrada || {}, {empresa:x.empresa, atual:null, inad:false});
+      PREC.aba = 'calcular';
+      if(location.hash !== '#/precificacao') location.hash = '#/precificacao'; else precDesenhar();
+    });
+  });
+  document.querySelectorAll('[data-pt-excluir]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var id = b.dataset.ptExcluir;
+      abrirModal('Excluir teste', '<div>O teste sai da lista para todos. Confirma?</div>',
+        [{rot:'Excluir', perigo:true, aoClicar:function(bb){
+          ocupado(bb, true);
+          chamar('api_precExcluirTeste', [id], function(){
+            fecharModal();
+            PREC.testes = PREC.testes.filter(function(z){ return z.id !== id; });
+            avisar('Teste excluído.', 'ok'); precAbaTestes();
+          }, function(){ ocupado(bb, false); });
+        }}]);
+    });
+  });
+}
+
+/* -------------------------------------------------------- aba Diretrizes */
+function precCelMeta(ch, obsPadrao, fontePadrao, dis){
+  var d = precD(ch) || {};
+  return '<td><select class="pd-status"' + dis + '>' + ['Provisório','Validado'].map(function(s){
+      return '<option' + (precStatus(ch) === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td>' +
+    '<td><input class="pd-fonte" style="width:110px;" value="' + esc(d.fonte !== undefined ? d.fonte : fontePadrao) + '"' + dis + '></td>' +
+    '<td><input class="pd-obs" style="min-width:220px;width:100%;" value="' + esc(d.obs !== undefined ? d.obs : obsPadrao) + '"' + dis + '></td>' +
+    '<td style="font-size:11.5px;color:var(--texto-suave);">' + (d.alteradoEm ? esc(d.alteradoPor || '') + '<br>' + fmtDataHora(d.alteradoEm) : 'planilha') + '</td>';
+}
+function precAbaDiretrizes(){
+  var ed = PREC.podeEditar, dis = ed ? '' : ' disabled';
+  function inp(cls, val, w){
+    return '<input type="number" step="any" class="mono ' + cls + '" style="width:' + (w || 90) + 'px;" value="' +
+      (val === null || val === undefined ? '' : esc(val)) + '"' + dis + '>';
+  }
+  var gruposTab = Object.keys(PREC_ATIV);
+  var gruposReg = [];
+  PREC_REGRAS.forEach(function(r){ if(gruposReg.indexOf(r[1]) < 0) gruposReg.push(r[1]); });
+
+  document.getElementById('prec-corpo').innerHTML =
+    (!ed ? '<div class="aviso aviso-info"><span class="aviso-ico">i</span><div>Você tem acesso só para consulta.</div></div>' : '') +
+    '<div style="font-size:13.5px;margin-bottom:12px;">Tudo aqui veio da tabela de preços comercial. Linhas em % são do salário mínimo (' +
+      fmtBRL(precSM()) + (window.PREC_SOLO ? ', vindo do Monitor). ' : ', em Parâmetros do ano). ') + 'Promocional e mínimo em branco seguem a regra geral de negociação. ' +
+      'Quando a liderança confirmar, marque <b>Validado</b>.</div>' +
+    gruposTab.map(function(g){
+      var rows = PREC_TABELA.filter(function(r){ return r[1] === g; });
+      return '<div class="sec"><div class="sec-tit">Tabela base · ' + esc(PREC_ATIV[g]) + '</div><div class="tab-caixa"><table><thead><tr>' +
+        '<th>Regime</th><th>Perfil</th><th>Regra</th><th>Tabela</th><th>Promocional</th><th>Mínimo</th>' +
+        '<th>Status</th><th>Origem</th><th>Observação</th><th>Última mudança</th></tr></thead><tbody>' +
+        rows.map(function(r){
+          var re = r[8] === 'reuniao';
+          return '<tr data-linha="' + r[0] + '">' +
+            '<td style="font-size:12px;">' + (r[2] === '*' ? 'Qualquer' : PREC_REG[r[2]]) + '</td>' +
+            '<td style="font-size:12px;">' + esc(precFaixaTxt(r)) + (r[7] ? ' · até ' + r[7] + ' notas' : '') + '</td>' +
+            '<td style="font-size:12px;">' + (re ? 'Reunião' : r[8] === 'pct' ? '% do SM' : 'R$ fixo') + '</td>' +
+            '<td>' + (re ? '—' : inp('pd-valor', precV(r[0]))) + '</td>' +
+            '<td>' + (re ? '—' : inp('pd-p', precVOpc(r[0] + '.p'))) + '</td>' +
+            '<td>' + (re ? '—' : inp('pd-m', precVOpc(r[0] + '.m'))) + '</td>' +
+            precCelMeta(r[0], r[12], 'Base comercial', dis) + '</tr>';
+        }).join('') + '</tbody></table></div></div>';
+    }).join('') +
+    gruposReg.map(function(g){
+      return '<div class="sec"><div class="sec-tit">' + esc(g) + '</div><div class="tab-caixa"><table><thead><tr>' +
+        '<th>Regra</th><th>Valor</th><th>Status</th><th>Origem</th><th>Critério escrito</th><th>Última mudança</th>' +
+        '</tr></thead><tbody>' +
+        PREC_REGRAS.filter(function(r){ return r[1] === g; }).map(function(r){
+          return '<tr data-regra="' + r[0] + '">' +
+            '<td style="font-size:12.5px;"><b>' + esc(r[2]) + '</b></td>' +
+            '<td style="white-space:nowrap;">' + inp('pd-valor', precV(r[0]), 110) + ' <span class="dica" style="margin:0;">' + esc(r[4]) + '</span></td>' +
+            precCelMeta(r[0], r[5], r[6], dis) + '</tr>';
+        }).join('') + '</tbody></table></div></div>';
+    }).join('') +
+    (ed ? '<div class="acoes" style="margin-top:6px;"><button class="btn btn-1" id="pd-salvar">Salvar diretrizes</button>' +
+      '<span class="dica" style="margin:0;">Vale na hora para todo mundo que usa a calculadora.</span></div>' : '');
+
+  if(!ed) return;
+  document.getElementById('pd-salvar').addEventListener('click', function(){
+    var b = this, mud = [];
+    function meta(tr, ch, obsP, fonteP){
+      var d = precD(ch) || {};
+      return { status:tr.querySelector('.pd-status').value, fonte:tr.querySelector('.pd-fonte').value.trim(),
+        obs:tr.querySelector('.pd-obs').value.trim(),
+        mudou:function(item){ return item.status !== precStatus(ch) ||
+          item.fonte !== (d.fonte !== undefined ? d.fonte : fonteP) || item.obs !== (d.obs !== undefined ? d.obs : obsP); } };
+    }
+    function lerNum(el){ if(!el) return undefined; return el.value === '' ? '' : Number(el.value); }
+    document.querySelectorAll('tr[data-regra]').forEach(function(tr){
+      var ch = tr.dataset.regra, r = PREC_PADRAO[ch], m = meta(tr, ch, r[5], r[6]);
+      var item = {chave:ch, valor:lerNum(tr.querySelector('.pd-valor')), status:m.status, fonte:m.fonte, obs:m.obs};
+      if(item.valor === '' || isNaN(item.valor)) return;
+      if(item.valor !== precV(ch) || m.mudou(item)) mud.push(item);
+    });
+    document.querySelectorAll('tr[data-linha]').forEach(function(tr){
+      var ch = tr.dataset.linha, r = PREC_TAB[ch], m = meta(tr, ch, r[12], 'Base comercial');
+      var v = lerNum(tr.querySelector('.pd-valor'));
+      var item = {chave:ch, valor:v === undefined ? 0 : v, status:m.status, fonte:m.fonte, obs:m.obs};
+      if(item.valor === '' || isNaN(item.valor)) return;
+      if((v !== undefined && item.valor !== precV(ch)) || m.mudou(item)) mud.push(item);
+      ['p','m'].forEach(function(k){
+        var el = tr.querySelector('.pd-' + k); if(!el) return;
+        var val = lerNum(el), atual = precVOpc(ch + '.' + k);
+        if((val === '' ? null : val) !== atual) mud.push({chave:ch + '.' + k, valor:val, status:m.status, fonte:m.fonte, obs:''});
+      });
+    });
+    if(!mud.length){ avisar('Nada mudou.', 'atencao'); return; }
+    ocupado(b, true);
+    chamar('api_precSalvarDiretrizes', [mud, S.meta.usuario || ''], function(res){
+      ocupado(b, false);
+      PREC.diretrizes = res.diretrizes || PREC.diretrizes;
+      avisar(res.mensagem || (mud.length + ' regra(s) salva(s).'), 'ok');
+      precDesenhar();
+    }, function(){ ocupado(b, false); });
+  });
+}
+
+/* A base reduzida já traz tudo calculado pelo Monitor. */
+function precEntradaDe(e){
+  return Object.assign(precEntradaVazia(), {
+    cnpj:e.cnpj, empresa:e.empresa, ativ:e.ativ || 'servico', regime:e.regime || 'SN',
+    rbt12:num(e.rbt12), outrosRbt:num(e.outrosRbt), outrosQtd:num(e.outrosQtd),
+    funcionarios:num(e.funcionarios), funcDaBase:num(e.funcionarios) > 0, notasMes:num(e.notasMes),
+    pend:!!e.pendenciaFiscal, inad:false, atual:null
+  });
+}
+function precRotaCnpj(){
+  var m = /^#\/precificacao\/(\d{14})/.exec(location.hash || '');
+  return m && S.porCnpj[m[1]] ? m[1] : null;
+}
+window.addEventListener('hashchange', function(){
+  if(!PREC.carregado) return;
+  var c = precRotaCnpj();
+  if(c) PREC.aba = 'calcular';
+  precDesenhar(c);
+});
+(function inicio(){
+  chamar('api_calcBase', [], function(res){
+    S.empresas = (res.empresas || []).map(function(e){ e.cnpjFmt = fmtCNPJ(e.cnpj); return e; })
+      .sort(function(a,b){ return String(a.empresa).localeCompare(String(b.empresa)); });
+    S.porCnpj = {}; S.empresas.forEach(function(e){ S.porCnpj[e.cnpj] = e; });
+    S.config.salario_minimo = res.salarioMinimo || 1621;
+    S.meta.usuario = res.usuario || (function(){ try{ return localStorage.getItem('escr_usuario') || ''; }catch(e){ return ''; } })();
+    document.getElementById('solo-base').textContent = fmtNum(S.empresas.length) + ' empresas' +
+      (res.atualizadoEm ? ' · base de ' + fmtDataHora(res.atualizadoEm) : '');
+    precCarregar(function(){
+      precDesenhar(precRotaCnpj());
+      if(!S.empresas.length){
+        var av = document.createElement('div');
+        av.className = 'aviso aviso-erro';
+        av.innerHTML = '<span class="aviso-ico">!</span><div><b>A base de empresas ainda está vazia.</b> ' +
+          'No projeto do Monitor, rode a função <code>publicarBaseCalculadora</code>. Enquanto isso, ' +
+          'dá para calcular preenchendo os dados à mão.</div>';
+        document.getElementById('conteudo').insertBefore(av, document.getElementById('conteudo').firstChild);
+      }
+    });
+  }, function(){
+    document.getElementById('conteudo').innerHTML = '<div class="vazio"><div class="vazio-ico">!</div>' +
+      'Não foi possível carregar a base da calculadora.<div style="margin-top:10px;">' +
+      '<button class="btn btn-1" onclick="location.reload()">Tentar de novo</button></div></div>';
+  });
+})();
+</script>
+</body>
+</html>
